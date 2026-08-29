@@ -1,4 +1,8 @@
-const API_BASE = '/api';
+const rawBase = import.meta.env.VITE_API_URL || '';
+const cleanBase = rawBase ? rawBase.replace(/\/+$/, '') : '';
+const API_BASE = cleanBase
+  ? (cleanBase.endsWith('/api') ? cleanBase : `${cleanBase}/api`)
+  : '/api';
 
 /**
  * Custom fetch wrapper injecting Auth token
@@ -14,7 +18,9 @@ async function request(endpoint, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  const url = `${API_BASE}${endpoint}`;
+
+  const response = await fetch(url, {
     ...options,
     headers
   });
