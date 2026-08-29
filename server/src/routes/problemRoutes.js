@@ -6,8 +6,6 @@ const { analyzeProblem, matchUniversities } = require('../services/aiService');
 
 /**
  * GET /api/problems - List problems based on role & privacy rules
- * CLIENT (PROBLEM_OWNER): Returns ONLY problems owned by authenticated user.
- * UNIVERSITY: Returns public multi-client discovery catalog.
  */
 router.get('/', authenticateToken, (req, res) => {
   try {
@@ -58,6 +56,98 @@ router.get('/', authenticateToken, (req, res) => {
   } catch (error) {
     console.error('Fetch problems error:', error);
     res.status(500).json({ error: 'Failed to retrieve problems.' });
+  }
+});
+
+/**
+ * GET /api/problems/responsible - Fetch problems under Government Responsibility & Solutions
+ */
+router.get('/responsible', authenticateToken, authorizeRoles('GOVERNMENT', 'PROBLEM_OWNER'), (req, res) => {
+  try {
+    const problems = db.prepare(`
+      SELECT p.*, u_owner.name as client_name, o.name as organization_name,
+             pa.category as ai_category, pa.difficulty as ai_difficulty, pa.social_impact as ai_impact,
+             pa.required_skills_json, pa.required_departments_json,
+             (SELECT count(*) FROM university_problem_acceptances upa WHERE upa.problem_id = p.id AND upa.status != 'REJECTED') as university_count,
+             (SELECT count(*) FROM proposals pr WHERE pr.problem_id = p.id) as proposal_count
+      FROM problems p
+      LEFT JOIN users u_owner ON p.owner_id = u_owner.id
+      LEFT JOIN organizations o ON u_owner.organization_id = o.id
+      LEFT JOIN problem_analysis pa ON p.id = pa.problem_id
+      ORDER BY p.created_at DESC
+    `).all();
+
+    const formatted = problems.map(p => {
+      // 1. Accepted Universities
+      const acceptedUniversities = db.prepare(`
+        SELECT upa.*, u.name as university_name, u.code, u.location, u.research_focus,
+               (SELECT count(*) FROM students s WHERE s.university_id = u.id) as student_count
+        FROM university_problem_acceptances upa
+        JOIN universities u ON upa.university_id = u.id
+        WHERE upa.problem_id = ? AND upa.status != 'REJECTED'
+      `).all(p.id);
+
+      // 2. Proposals / Solutions
+      const proposals = db.prepare(`
+        SELECT pr.*, u.name as university_name, u.location as university_location,
+               u_sub.name as submitter_name
+        FROM proposals pr
+        JOIN universities u ON pr.university_id = u.id
+        LEFT JOIN users u_sub ON pr.submitted_by = u_sub.id
+        WHERE pr.problem_id = ?
+        ORDER BY pr.created_at DESC
+      `).all(p.id);
+
+      // 3. Government Reviews
+      const reviews = db.prepare(`
+        SELECT gr.*, u.name as reviewer_name
+        FROM government_reviews gr
+        LEFT JOIN users u ON gr.government_id = u.id
+        WHERE gr.problem_id = ?
+        ORDER BY gr.created_at DESC
+      `).all(p.id);
+
+      // 4. Compute Stage Lifecycle Progress
+      let lifecycleStage = 'PROBLEM_REGISTERED';
+      if (p.status === 'DEPLOYED' || p.status === 'CLOSED') {
+        lifecycleStage = 'DEPLOYMENT';
+      } else if (p.status === 'TESTING') {
+        lifecycleStage = 'TESTING';
+      } else if (p.status === 'DEVELOPMENT' || p.status === 'SOLUTION_SELECTED') {
+        lifecycleStage = 'DEVELOPMENT';
+      } else if (reviews.length > 0) {
+        lifecycleStage = 'PROPOSAL_REVIEWED';
+      } else if (proposals.length > 0) {
+        lifecycleStage = 'PROPOSAL_SUBMITTED';
+      } else if (acceptedUniversities.length > 0) {
+        lifecycleStage = 'UNIVERSITY_ACCEPTED';
+      }
+
+      let skills = [];
+      let depts = [];
+      try { skills = JSON.parse(p.required_skills_json || '[]'); } catch (e) {}
+      try { depts = JSON.parse(p.required_departments_json || '[]'); } catch (e) {}
+
+      return {
+        ...p,
+        responsibility_key: p.responsibility_key || p.category || 'COMMUNITY_DEVELOPMENT',
+        government_department: p.government_department || 'District Administration',
+        government_authority: p.government_authority || 'District Administration - District X',
+        jurisdiction: p.jurisdiction || 'District X',
+        routing_status: p.routing_status || 'AI_ROUTED',
+        lifecycle_stage: lifecycleStage,
+        required_skills: skills,
+        required_departments: depts,
+        accepted_universities: acceptedUniversities,
+        solutions: proposals,
+        government_reviews: reviews
+      };
+    });
+
+    res.json({ responsible_problems: formatted });
+  } catch (error) {
+    console.error('Fetch responsible problems error:', error);
+    res.status(500).json({ error: 'Failed to fetch government responsible problems.' });
   }
 });
 
@@ -117,7 +207,6 @@ router.get('/accepted', authenticateToken, (req, res) => {
       ORDER BY upa.accepted_at DESC
     `).all(univId, univId);
 
-    console.log(`[DEBUG /api/problems/accepted] univId: ${univId}, user: ${req.user.name}, returned: ${accepted.length}`);
     res.json({ accepted });
   } catch (error) {
     console.error('Fetch accepted problems error:', error);
@@ -126,14 +215,12 @@ router.get('/accepted', authenticateToken, (req, res) => {
 });
 
 /**
- * POST /api/problems - Submit a new societal problem (Client / Problem Owner)
- * Form Validation & Automated AI Analysis + Immediate Publication Pipeline
+ * POST /api/problems - Submit a new societal problem with AI Responsibility Routing
  */
 router.post('/', authenticateToken, authorizeRoles('PROBLEM_OWNER', 'GOVERNMENT'), async (req, res) => {
   try {
-    const { title, description, category, subcategory, location, urgency, expected_outcome, target_users, required_skills, additional_requirements } = req.body;
+    const { title, description, category, subcategory, location, urgency, target_users, required_skills } = req.body;
 
-    // Strict Field Validation
     if (!title || title.trim().length < 5) {
       return res.status(400).json({ error: 'Title is required (minimum 5 characters).' });
     }
@@ -147,10 +234,23 @@ router.post('/', authenticateToken, authorizeRoles('PROBLEM_OWNER', 'GOVERNMENT'
       return res.status(400).json({ error: 'Location specification is required.' });
     }
 
-    // 1. Insert Problem Record into SQLite (owner_id derived strictly from req.user.id)
+    // Default Government Department Mapping
+    const deptMap = {
+      'HEALTHCARE': 'District Health Department',
+      'DISASTER_MANAGEMENT': 'State Disaster Management Authority',
+      'CIVIC_INFRASTRUCTURE': 'Municipal Public Works Department',
+      'EDUCATION': 'District Education Department',
+      'COMMUNITY_DEVELOPMENT': 'District Social Welfare Board'
+    };
+
+    const initialDept = deptMap[category] || 'District Administration';
+
+    // 1. Insert Problem Record into SQLite
     const stmt = db.prepare(`
-      INSERT INTO problems (title, description, category, subcategory, location, lat, lng, urgency, budget, timeline, target_users, owner_id, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SUBMITTED')
+      INSERT INTO problems (
+        title, description, category, subcategory, location, lat, lng, urgency, budget, timeline, target_users, owner_id,
+        responsibility_key, government_department, government_authority, jurisdiction, ai_responsibility_key, official_responsibility_key, routing_status, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AI_ROUTED', 'SUBMITTED')
     `);
 
     const result = stmt.run(
@@ -165,41 +265,84 @@ router.post('/', authenticateToken, authorizeRoles('PROBLEM_OWNER', 'GOVERNMENT'
       0,
       '3 Months',
       target_users || 'General Public',
-      req.user.id
+      req.user.id,
+      category,
+      initialDept,
+      'District Administration - District X',
+      'District X',
+      category,
+      category
     );
 
     const problemId = result.lastInsertRowid;
     const problem = db.prepare('SELECT * FROM problems WHERE id = ?').get(problemId);
 
-    // 2. Automated Gemini AI Analysis
-    const aiResult = await analyzeProblem(problem);
+    // 2. Automated Gemini AI Analysis & Routing Suggestion (Resilient to rate limits)
+    let aiResult = null;
+    try {
+      aiResult = await analyzeProblem(problem);
 
-    // Store AI Analysis in SQLite
-    db.prepare(`
-      INSERT INTO problem_analysis (
-        problem_id, category, subcategory, required_skills_json, required_technologies_json,
-        required_departments_json, difficulty, urgency, social_impact, estimated_resources, solution_areas_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      problemId,
-      aiResult.category || category,
-      aiResult.subcategory || subcategory || 'General',
-      JSON.stringify(aiResult.requiredSkills || (required_skills ? required_skills.split(',') : ['Data Analysis', 'AI'])),
-      JSON.stringify(aiResult.requiredTechnologies || ['Web App', 'IoT']),
-      JSON.stringify(aiResult.requiredDepartments || ['CSE', 'ECE']),
-      aiResult.difficulty || 'Intermediate',
-      aiResult.urgency || urgency || 'MEDIUM',
-      aiResult.socialImpact || 'High Impact',
-      aiResult.estimatedResources || 'Academic Team (4-6 members)',
-      JSON.stringify(aiResult.possibleSolutionAreas || ['Mobile App', 'Dashboard'])
-    );
+      if (aiResult && (aiResult.responsibilityKey || aiResult.governmentDepartment)) {
+        db.prepare(`
+          UPDATE problems SET
+            responsibility_key = ?,
+            government_department = ?,
+            government_authority = ?,
+            jurisdiction = ?,
+            ai_responsibility_key = ?
+          WHERE id = ?
+        `).run(
+          aiResult.responsibilityKey || category,
+          aiResult.governmentDepartment || initialDept,
+          aiResult.governmentAuthority || 'District Administration - District X',
+          aiResult.jurisdiction || 'District X',
+          aiResult.responsibilityKey || category,
+          problemId
+        );
+
+        db.prepare(`
+          INSERT INTO problem_analysis (
+            problem_id, category, subcategory, required_skills_json, required_technologies_json,
+            required_departments_json, difficulty, urgency, social_impact, estimated_resources, solution_areas_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          problemId,
+          aiResult.category || category,
+          aiResult.subcategory || subcategory || 'General',
+          JSON.stringify(aiResult.requiredSkills || (required_skills ? required_skills.split(',') : ['Data Analysis', 'AI'])),
+          JSON.stringify(aiResult.requiredTechnologies || ['Web App', 'IoT']),
+          JSON.stringify(aiResult.requiredDepartments || ['CSE', 'ECE']),
+          aiResult.difficulty || 'Intermediate',
+          aiResult.urgency || urgency || 'MEDIUM',
+          aiResult.socialImpact || 'High Impact',
+          aiResult.estimatedResources || 'Academic Team (4-6 members)',
+          JSON.stringify(aiResult.possibleSolutionAreas || ['Mobile App', 'Dashboard'])
+        );
+      }
+    } catch (aiErr) {
+      console.warn('[AI Routing Notice] AI analysis skipped due to rate limit/availability. Default responsibility parameters applied:', aiErr.message);
+    }
 
     // 3. Update Problem Status to PUBLISHED so it appears immediately in University Portal
     db.prepare('UPDATE problems SET status = "PUBLISHED" WHERE id = ?').run(problemId);
 
+    // Generate Notification for Government Authority
+    const govUsers = db.prepare('SELECT id FROM users WHERE role = "GOVERNMENT"').all();
+    govUsers.forEach(g => {
+      db.prepare(`
+        INSERT INTO notifications (user_id, title, message, type, metadata_json)
+        VALUES (?, '🏛️ New Problem Assigned to Government Jurisdiction', ?, 'SYSTEM', ?)
+      `).run(
+        g.id,
+        `New Challenge Registered: '${title}' assigned to ${aiResult?.governmentDepartment || initialDept}.`,
+
+        JSON.stringify({ problem_id: problemId, responsibility_key: category })
+      );
+    });
+
     // Audit log
     db.prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)')
-      .run(req.user.id, 'PROBLEM_CREATED', 'PROBLEM', problemId, `Problem '${title}' created & auto-published by User #${req.user.id}`);
+      .run(req.user.id, 'PROBLEM_CREATED', 'PROBLEM', problemId, `Problem '${title}' created & routed to ${initialDept}`);
 
     res.status(201).json({
       message: 'Challenge submitted successfully and published to University Portal.',
@@ -226,7 +369,6 @@ router.post('/:id/accept', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN',
       return res.status(404).json({ error: 'Problem not found.' });
     }
 
-    // Check if already accepted
     const existing = db.prepare('SELECT * FROM university_problem_acceptances WHERE university_id = ? AND problem_id = ?').get(univId, problemId);
 
     if (existing && existing.status === 'ACCEPTED') {
@@ -242,8 +384,9 @@ router.post('/:id/accept', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN',
       `).run(univId, problemId);
     }
 
-    // Generate Notification for Problem Owner
     const university = db.prepare('SELECT name FROM universities WHERE id = ?').get(univId);
+
+    // 1. Generate Notification for Problem Owner
     db.prepare(`
       INSERT INTO notifications (user_id, title, message, type, metadata_json)
       VALUES (?, '🎓 University Accepted Your Challenge', ?, 'ACCEPTANCE', ?)
@@ -253,11 +396,20 @@ router.post('/:id/accept', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN',
       JSON.stringify({ problem_id: problemId, university_id: univId, status: 'ACCEPTED' })
     );
 
-    // Audit log
-    db.prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)')
-      .run(req.user.id, 'PROBLEM_ACCEPTED', 'PROBLEM', problemId, `University accepted problem '${problem.title}'`);
+    // 2. Generate Notification for Government Authority
+    const govUsers = db.prepare('SELECT id FROM users WHERE role = "GOVERNMENT"').all();
+    govUsers.forEach(g => {
+      db.prepare(`
+        INSERT INTO notifications (user_id, title, message, type, metadata_json)
+        VALUES (?, '🎓 University Accepted Government Problem', ?, 'ACCEPTANCE', ?)
+      `).run(
+        g.id,
+        `${university?.name || 'A university'} accepted Problem #${problemId} ('${problem.title}').`,
+        JSON.stringify({ problem_id: problemId, university_id: univId, status: 'ACCEPTED' })
+      );
+    });
 
-    res.json({ message: `Challenge '${problem.title}' accepted! University workspace updated.` });
+    res.json({ message: `Challenge '${problem.title}' accepted! Workspace updated.` });
   } catch (error) {
     console.error('Accept problem error:', error);
     res.status(500).json({ error: 'Failed to accept challenge.' });
@@ -265,7 +417,7 @@ router.post('/:id/accept', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN',
 });
 
 /**
- * POST /api/problems/:id/reject - University rejects a challenge (with optional reason)
+ * POST /api/problems/:id/reject - University rejects a challenge
  */
 router.post('/:id/reject', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN', 'FACULTY'), (req, res) => {
   try {
@@ -290,41 +442,121 @@ router.post('/:id/reject', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN',
       `).run(univId, problemId, rejection_reason || 'Outside current department scope');
     }
 
-    // Generate Notification for Problem Owner
-    const university = db.prepare('SELECT name FROM universities WHERE id = ?').get(univId);
-    db.prepare(`
-      INSERT INTO notifications (user_id, title, message, type, metadata_json)
-      VALUES (?, 'University Rejected Your Challenge', ?, 'REJECTION', ?)
-    `).run(
-      problem.owner_id,
-      `${university?.name || 'A university'} declined your challenge: '${problem.title}'. Reason: ${rejection_reason || 'Not specified'}.`,
-      JSON.stringify({ problem_id: problemId, university_id: univId, status: 'REJECTED', rejection_reason })
-    );
-
     res.json({ message: `Challenge '${problem.title}' declined.` });
   } catch (error) {
-    console.error('Reject problem error:', error);
     res.status(500).json({ error: 'Failed to reject challenge.' });
   }
 });
 
 /**
- * GET /api/problems/:id/responses - Get all university responses for a problem
+ * POST /api/problems/:id/government-review - Government issues review decision on proposal
  */
-router.get('/:id/responses', authenticateToken, (req, res) => {
+router.post('/:id/government-review', authenticateToken, authorizeRoles('GOVERNMENT'), (req, res) => {
   try {
     const problemId = req.params.id;
-    const responses = db.prepare(`
-      SELECT upa.*, u.name as university_name, u.location, u.research_focus
-      FROM university_problem_acceptances upa
-      JOIN universities u ON upa.university_id = u.id
-      WHERE upa.problem_id = ?
-      ORDER BY upa.accepted_at DESC
-    `).all(problemId);
+    const { proposal_id, decision, feedback } = req.body;
 
-    res.json({ responses });
+    if (!decision || !['APPROVED', 'CHANGES_REQUESTED', 'REJECTED'].includes(decision)) {
+      return res.status(400).json({ error: 'Valid decision (APPROVED, CHANGES_REQUESTED, REJECTED) is required.' });
+    }
+
+    const problem = db.prepare('SELECT * FROM problems WHERE id = ?').get(problemId);
+    if (!problem) {
+      return res.status(404).json({ error: 'Problem not found.' });
+    }
+
+    // Insert Review Record
+    db.prepare(`
+      INSERT INTO government_reviews (problem_id, proposal_id, government_id, decision, feedback)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(problemId, proposal_id || null, req.user.id, decision, feedback || '');
+
+    // Update Proposal Status if specified
+    if (proposal_id) {
+      const propStatus = decision === 'APPROVED' ? 'SELECTED' : (decision === 'CHANGES_REQUESTED' ? 'CHANGES_REQUESTED' : 'REJECTED');
+      db.prepare('UPDATE proposals SET status = ? WHERE id = ?').run(propStatus, proposal_id);
+
+      const proposal = db.prepare('SELECT university_id FROM proposals WHERE id = ?').get(proposal_id);
+      if (proposal) {
+        const univAdmin = db.prepare('SELECT id FROM users WHERE university_id = ? AND role = "UNIVERSITY_ADMIN"').get(proposal.university_id);
+        if (univAdmin) {
+          db.prepare(`
+            INSERT INTO notifications (user_id, title, message, type, metadata_json)
+            VALUES (?, ?, ?, 'PROPOSAL', ?)
+          `).run(
+            univAdmin.id,
+            `🏛️ Government Review: Proposal ${decision}`,
+            `Government authority reviewed your solution for '${problem.title}'. Decision: ${decision}. Feedback: ${feedback || 'None'}`,
+            JSON.stringify({ problem_id: problemId, proposal_id, decision })
+          );
+        }
+      }
+    }
+
+    // Update Problem Status
+    let newProblemStatus = problem.status;
+    if (decision === 'APPROVED') {
+      newProblemStatus = 'DEVELOPMENT';
+    } else if (decision === 'CHANGES_REQUESTED') {
+      newProblemStatus = 'PROPOSALS_RECEIVED';
+    }
+    db.prepare('UPDATE problems SET status = ? WHERE id = ?').run(newProblemStatus, problemId);
+
+    // Notify Problem Owner
+    db.prepare(`
+      INSERT INTO notifications (user_id, title, message, type, metadata_json)
+      VALUES (?, '🏛️ Government Reviewed Solution', ?, 'PROPOSAL', ?)
+    `).run(
+      problem.owner_id,
+      `Government authority issued a review decision (${decision}) on a university solution for '${problem.title}'.`,
+      JSON.stringify({ problem_id: problemId, decision })
+    );
+
+    res.json({
+      message: `Government decision '${decision}' recorded successfully.`,
+      status: newProblemStatus
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch university responses.' });
+    console.error('Government review error:', error);
+    res.status(500).json({ error: 'Failed to record government review decision.' });
+  }
+});
+
+/**
+ * PATCH /api/problems/:id/routing - Government overrides or verifies AI responsibility routing
+ */
+router.patch('/:id/routing', authenticateToken, authorizeRoles('GOVERNMENT'), (req, res) => {
+  try {
+    const problemId = req.params.id;
+    const { official_responsibility_key, government_department, jurisdiction } = req.body;
+
+    const problem = db.prepare('SELECT * FROM problems WHERE id = ?').get(problemId);
+    if (!problem) {
+      return res.status(404).json({ error: 'Problem not found.' });
+    }
+
+    db.prepare(`
+      UPDATE problems SET
+        responsibility_key = COALESCE(?, responsibility_key),
+        official_responsibility_key = COALESCE(?, official_responsibility_key),
+        government_department = COALESCE(?, government_department),
+        jurisdiction = COALESCE(?, jurisdiction),
+        routing_status = 'GOVERNMENT_VERIFIED'
+      WHERE id = ?
+    `).run(
+      official_responsibility_key,
+      official_responsibility_key,
+      government_department,
+      jurisdiction,
+      problemId
+    );
+
+    res.json({
+      message: 'Government responsibility routing verified & updated successfully.',
+      routing_status: 'GOVERNMENT_VERIFIED'
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update government routing.' });
   }
 });
 
@@ -368,10 +600,31 @@ router.get('/:id', authenticateToken, (req, res) => {
       WHERE upa.problem_id = ?
     `).all(problemId);
 
+    const proposals = db.prepare(`
+      SELECT pr.*, u.name as university_name
+      FROM proposals pr
+      JOIN universities u ON pr.university_id = u.id
+      WHERE pr.problem_id = ?
+    `).all(problemId);
+
+    const reviews = db.prepare(`
+      SELECT gr.*, u.name as reviewer_name
+      FROM government_reviews gr
+      LEFT JOIN users u ON gr.government_id = u.id
+      WHERE gr.problem_id = ?
+    `).all(problemId);
+
     res.json({
-      problem,
+      problem: {
+        ...problem,
+        responsibility_key: problem.responsibility_key || problem.category || 'COMMUNITY_DEVELOPMENT',
+        government_department: problem.government_department || 'District Administration',
+        jurisdiction: problem.jurisdiction || 'District X'
+      },
       analysis,
-      responses
+      responses,
+      proposals,
+      reviews
     });
   } catch (error) {
     console.error('Fetch problem detail error:', error);
@@ -380,7 +633,7 @@ router.get('/:id', authenticateToken, (req, res) => {
 });
 
 /**
- * POST /api/problems/:id/analyze - Manually trigger AI Analysis for a Problem
+ * POST /api/problems/:id/analyze - Trigger AI Analysis for a Problem
  */
 router.post('/:id/analyze', authenticateToken, async (req, res) => {
   try {
@@ -392,49 +645,6 @@ router.post('/:id/analyze', authenticateToken, async (req, res) => {
     }
 
     const aiResult = await analyzeProblem(problem);
-
-    // Upsert analysis in SQLite
-    const existing = db.prepare('SELECT id FROM problem_analysis WHERE problem_id = ?').get(problemId);
-    if (existing) {
-      db.prepare(`
-        UPDATE problem_analysis SET
-          category = ?, subcategory = ?, required_skills_json = ?, required_technologies_json = ?,
-          required_departments_json = ?, difficulty = ?, urgency = ?, social_impact = ?,
-          estimated_resources = ?, solution_areas_json = ?
-        WHERE problem_id = ?
-      `).run(
-        aiResult.category || problem.category,
-        aiResult.subcategory || problem.subcategory || 'General',
-        JSON.stringify(aiResult.requiredSkills || []),
-        JSON.stringify(aiResult.requiredTechnologies || []),
-        JSON.stringify(aiResult.requiredDepartments || []),
-        aiResult.difficulty || 'Intermediate',
-        aiResult.urgency || problem.urgency || 'MEDIUM',
-        aiResult.socialImpact || 'High Impact',
-        aiResult.estimatedResources || 'Academic Team (4-6 members)',
-        JSON.stringify(aiResult.possibleSolutionAreas || []),
-        problemId
-      );
-    } else {
-      db.prepare(`
-        INSERT INTO problem_analysis (
-          problem_id, category, subcategory, required_skills_json, required_technologies_json,
-          required_departments_json, difficulty, urgency, social_impact, estimated_resources, solution_areas_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        problemId,
-        aiResult.category || problem.category,
-        aiResult.subcategory || problem.subcategory || 'General',
-        JSON.stringify(aiResult.requiredSkills || []),
-        JSON.stringify(aiResult.requiredTechnologies || []),
-        JSON.stringify(aiResult.requiredDepartments || []),
-        aiResult.difficulty || 'Intermediate',
-        aiResult.urgency || problem.urgency || 'MEDIUM',
-        aiResult.socialImpact || 'High Impact',
-        aiResult.estimatedResources || 'Academic Team (4-6 members)',
-        JSON.stringify(aiResult.possibleSolutionAreas || [])
-      );
-    }
 
     res.json({
       message: 'AI Problem Analysis completed.',
@@ -500,7 +710,6 @@ router.get('/recommended', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN',
       }))
     });
   } catch (error) {
-    console.error('Recommended problems error:', error.message);
     res.status(500).json({ error: 'Failed to fetch recommended problems.' });
   }
 });

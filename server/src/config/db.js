@@ -36,14 +36,71 @@ async function initDb() {
 
     rawDb.exec('PRAGMA foreign_keys = ON;');
 
-    // Run schema
+    // Migration helper: Ensure new columns & tables exist safely on existing database
+    const migrations = [
+      'ALTER TABLE university_problem_acceptances ADD COLUMN rejection_reason TEXT;',
+      'ALTER TABLE problems ADD COLUMN responsibility_key TEXT;',
+      'ALTER TABLE problems ADD COLUMN government_department TEXT;',
+      'ALTER TABLE problems ADD COLUMN government_authority TEXT;',
+      'ALTER TABLE problems ADD COLUMN jurisdiction TEXT;',
+      'ALTER TABLE problems ADD COLUMN ai_responsibility_key TEXT;',
+      'ALTER TABLE problems ADD COLUMN official_responsibility_key TEXT;',
+      'ALTER TABLE problems ADD COLUMN routing_status TEXT DEFAULT "AI_ROUTED";',
+      `CREATE TABLE IF NOT EXISTS government_reviews (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        problem_id INTEGER NOT NULL,
+        proposal_id INTEGER,
+        government_id INTEGER NOT NULL,
+        decision TEXT CHECK(decision IN ('APPROVED', 'CHANGES_REQUESTED', 'REJECTED')) NOT NULL,
+        feedback TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );`,
+      `CREATE TABLE IF NOT EXISTS problem_government_assignments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        problem_id INTEGER NOT NULL,
+        government_id INTEGER,
+        responsibility_key TEXT,
+        jurisdiction TEXT,
+        assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );`
+    ];
+
+    for (const sql of migrations) {
+      try {
+        rawDb.exec(sql);
+      } catch (e) {
+        // Column or table already exists
+      }
+    }
+
+    // Run full schema definitions
     const schemaSql = fs.readFileSync(schemaPath, 'utf8');
     rawDb.exec(schemaSql);
 
-    // Migration helper: Ensure rejection_reason exists
+
+    // Populate responsibility fields for existing problems if unpopulated
     try {
-      rawDb.exec('ALTER TABLE university_problem_acceptances ADD COLUMN rejection_reason TEXT;');
-    } catch (e) {}
+      rawDb.exec(`
+        UPDATE problems SET
+          responsibility_key = COALESCE(responsibility_key, category, 'COMMUNITY_DEVELOPMENT'),
+          government_department = COALESCE(government_department, 
+            CASE category 
+              WHEN 'HEALTHCARE' THEN 'District Health Department'
+              WHEN 'DISASTER_MANAGEMENT' THEN 'State Disaster Management Authority'
+              WHEN 'CIVIC_INFRASTRUCTURE' THEN 'Municipal Public Works Department'
+              WHEN 'EDUCATION' THEN 'District Education Department'
+              ELSE 'District Administration Welfare Board'
+            END),
+          government_authority = COALESCE(government_authority, 'District Administration - District X'),
+          jurisdiction = COALESCE(jurisdiction, 'District X'),
+          ai_responsibility_key = COALESCE(ai_responsibility_key, category, 'COMMUNITY_DEVELOPMENT'),
+          official_responsibility_key = COALESCE(official_responsibility_key, category, 'COMMUNITY_DEVELOPMENT'),
+          routing_status = COALESCE(routing_status, 'AI_ROUTED')
+        WHERE responsibility_key IS NULL OR government_department IS NULL;
+      `);
+    } catch (e) {
+      console.warn('Migration update warning:', e.message);
+    }
 
     // Seed if empty
     const userCheck = queryGet('SELECT count(*) as count FROM users');

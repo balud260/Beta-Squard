@@ -85,14 +85,19 @@ async function callGemini(prompt, options = {}) {
 }
 
 /**
- * 1. AI Problem Analysis
+ * 1. AI Problem Analysis & Government Responsibility Routing Suggestion
  */
 async function analyzeProblemAI(problem) {
-  const prompt = `You are SolveLink AI, an expert engineering & societal problem classification engine.
+  const prompt = `You are SolveLink AI, an expert engineering & societal problem classification and government routing engine.
 Analyze the following problem statement and return ONLY a valid JSON object matching this exact structure:
 {
   "category": "string (COMMUNITY_DEVELOPMENT | HEALTHCARE | DISASTER_MANAGEMENT | CIVIC_INFRASTRUCTURE | EDUCATION)",
   "subcategory": "string",
+  "responsibilityKey": "string (COMMUNITY_DEVELOPMENT | HEALTHCARE | DISASTER_MANAGEMENT | CIVIC_INFRASTRUCTURE | EDUCATION)",
+  "governmentDepartment": "string concise department title (e.g. District Health Department, State Disaster Management Authority, District Education Department)",
+  "governmentAuthority": "string authority name (e.g. District Administration - District X)",
+  "jurisdiction": "string target region (e.g. District X)",
+  "confidence": number (0.0 to 1.0),
   "requiredSkills": ["array of strings"],
   "requiredTechnologies": ["array of strings"],
   "requiredDepartments": ["array of strings"],
@@ -101,7 +106,7 @@ Analyze the following problem statement and return ONLY a valid JSON object matc
   "socialImpact": "MODERATE" | "HIGH" | "CRITICAL",
   "estimatedResources": "string concise description",
   "possibleSolutionAreas": ["array of strategic solution areas"],
-  "recommendation": "string guidance for university pairing"
+  "recommendation": "string guidance for university & government pairing"
 }
 
 Problem Details:
@@ -114,6 +119,7 @@ Urgency: ${problem.urgency || 'MEDIUM'}`;
   const text = await callGemini(prompt);
   return cleanAndParseJSON(text);
 }
+
 
 /**
  * 2. AI University Matching

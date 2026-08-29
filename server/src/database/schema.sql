@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS faculty (
   FOREIGN KEY (university_id) REFERENCES universities(id) ON DELETE CASCADE
 );
 
--- Problems (Societal Challenges)
+-- Problems (Societal Challenges with Government Responsibility Routing)
 CREATE TABLE IF NOT EXISTS problems (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT NOT NULL,
@@ -115,6 +115,13 @@ CREATE TABLE IF NOT EXISTS problems (
   budget REAL DEFAULT 0,
   timeline TEXT,
   owner_id INTEGER NOT NULL,
+  responsibility_key TEXT,
+  government_department TEXT,
+  government_authority TEXT,
+  jurisdiction TEXT,
+  ai_responsibility_key TEXT,
+  official_responsibility_key TEXT,
+  routing_status TEXT CHECK(routing_status IN ('AI_ROUTED', 'GOVERNMENT_VERIFIED', 'ROUTING_REVIEW_REQUIRED')) DEFAULT 'AI_ROUTED',
   status TEXT CHECK(status IN ('DRAFT', 'SUBMITTED', 'ANALYZED', 'VALIDATED', 'PUBLISHED', 'PROPOSALS_RECEIVED', 'SOLUTION_SELECTED', 'DEVELOPMENT', 'TESTING', 'DEPLOYED', 'CLOSED')) DEFAULT 'SUBMITTED',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
@@ -164,7 +171,7 @@ CREATE TABLE IF NOT EXISTS proposals (
   feasibility_score INTEGER DEFAULT 85,
   impact_score INTEGER DEFAULT 90,
   risk_level TEXT DEFAULT 'LOW',
-  status TEXT CHECK(status IN ('SUBMITTED', 'SHORTLISTED', 'SELECTED', 'REJECTED')) DEFAULT 'SUBMITTED',
+  status TEXT CHECK(status IN ('SUBMITTED', 'SHORTLISTED', 'SELECTED', 'CHANGES_REQUESTED', 'REJECTED')) DEFAULT 'SUBMITTED',
   version INTEGER DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (problem_id) REFERENCES problems(id) ON DELETE CASCADE,
@@ -184,7 +191,32 @@ CREATE TABLE IF NOT EXISTS proposal_versions (
   FOREIGN KEY (proposal_id) REFERENCES proposals(id) ON DELETE CASCADE
 );
 
--- Projects (Post Proposal Selection)
+-- Government Solution Reviews
+CREATE TABLE IF NOT EXISTS government_reviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  problem_id INTEGER NOT NULL,
+  proposal_id INTEGER,
+  government_id INTEGER NOT NULL,
+  decision TEXT CHECK(decision IN ('APPROVED', 'CHANGES_REQUESTED', 'REJECTED')) NOT NULL,
+  feedback TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (problem_id) REFERENCES problems(id) ON DELETE CASCADE,
+  FOREIGN KEY (proposal_id) REFERENCES proposals(id) ON DELETE CASCADE,
+  FOREIGN KEY (government_id) REFERENCES users(id)
+);
+
+-- Government Assignments
+CREATE TABLE IF NOT EXISTS problem_government_assignments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  problem_id INTEGER NOT NULL,
+  government_id INTEGER,
+  responsibility_key TEXT,
+  jurisdiction TEXT,
+  assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (problem_id) REFERENCES problems(id) ON DELETE CASCADE
+);
+
+-- Projects (Post Proposal Selection / Government Approval)
 CREATE TABLE IF NOT EXISTS projects (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   problem_id INTEGER UNIQUE NOT NULL,
@@ -348,6 +380,7 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_problems_owner ON problems(owner_id);
 CREATE INDEX IF NOT EXISTS idx_problems_status ON problems(status);
+CREATE INDEX IF NOT EXISTS idx_problems_resp ON problems(responsibility_key);
 CREATE INDEX IF NOT EXISTS idx_proposals_problem ON proposals(problem_id);
 CREATE INDEX IF NOT EXISTS idx_disasters_status ON disasters(status);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);

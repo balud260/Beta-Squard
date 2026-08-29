@@ -48,8 +48,9 @@ export const api = {
   getStudentContributions: () => request('/students/contributions'),
   getStudentProfile: () => request('/students/profile'),
 
-  // Problems (Client & University Scoped)
+  // Problems (Client, University & Government Responsibility Scoped)
   getProblems: () => request('/problems'),
+  getResponsibleProblems: () => request('/problems/responsible'),
   getPublicProblems: () => request('/problems/public'),
   getRecommendedProblems: () => request('/problems/recommended'),
   getAcceptedProblems: () => request('/problems/accepted'),
@@ -61,6 +62,9 @@ export const api = {
   analyzeProblem: (id) => request(`/problems/${id}/analyze`, { method: 'POST' }),
   getProblemMatches: (id) => request(`/problems/${id}/matches`),
   publishProblem: (id) => request(`/problems/${id}/publish`, { method: 'POST' }),
+  submitGovernmentReview: (id, data) => request(`/problems/${id}/government-review`, { method: 'POST', body: JSON.stringify(data) }),
+  updateProblemRouting: (id, data) => request(`/problems/${id}/routing`, { method: 'PATCH', body: JSON.stringify(data) }),
+
 
   // Proposals
   compareProposals: (problemId) => request(`/proposals/compare/${problemId}`),

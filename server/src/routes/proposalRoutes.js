@@ -93,12 +93,28 @@ router.post('/', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN', 'FACULTY'
 
     // Notify Problem Owner
     const problem = db.prepare('SELECT owner_id, title FROM problems WHERE id = ?').get(problem_id);
+    const university = db.prepare('SELECT name FROM universities WHERE id = ?').get(university_id);
+
     if (problem) {
       db.prepare(`
         INSERT INTO notifications (user_id, title, message, type, metadata_json)
         VALUES (?, 'New University Proposal Submitted', ?, 'PROPOSAL', ?)
       `).run(problem.owner_id, `Proposal received for '${problem.title}'`, JSON.stringify({ problem_id, proposal_id: proposalId }));
     }
+
+    // Notify Government Authorities automatically
+    const govUsers = db.prepare('SELECT id FROM users WHERE role = "GOVERNMENT"').all();
+    govUsers.forEach(g => {
+      db.prepare(`
+        INSERT INTO notifications (user_id, title, message, type, metadata_json)
+        VALUES (?, '🏛️ NEW SOLUTION RECEIVED', ?, 'PROPOSAL', ?)
+      `).run(
+        g.id,
+        `${university?.name || 'A university'} submitted a solution proposal for Problem #${problem_id} ('${problem?.title || ''}').`,
+        JSON.stringify({ problem_id, proposal_id: proposalId, university_id })
+      );
+    });
+
 
     res.status(201).json({
       message: 'Proposal submitted successfully.',
