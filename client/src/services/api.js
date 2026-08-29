@@ -103,7 +103,10 @@ export const api = {
   // Impact
   getImpactMetrics: () => request('/impact'),
 
-  // AI Assistant
+  // Centralized AI Service Endpoints
   chatAI: (query) => request('/ai/chat', { method: 'POST', body: JSON.stringify({ query }) }),
-  queryAIAssistant: (data) => request('/ai/assistant', { method: 'POST', body: JSON.stringify(data) })
+  queryAIAssistant: (data) => request('/ai/assistant', { method: 'POST', body: JSON.stringify(data) }),
+  analyzeTeamSkillGap: (data) => request('/ai/team-skill-gap', { method: 'POST', body: JSON.stringify(data) }),
+  analyzeProposals: (data) => request('/ai/proposal-analysis', { method: 'POST', body: JSON.stringify(data) }),
+  getImpactAIAnalysis: () => request('/ai/impact-analysis')
 };

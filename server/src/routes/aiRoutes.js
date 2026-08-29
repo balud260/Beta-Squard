@@ -2,7 +2,13 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { authenticateToken } = require('../middleware/auth');
-const { disasterAssistantQuery, handleRoleAwareChat } = require('../services/aiService');
+const {
+  disasterAssistantQuery,
+  handleRoleAwareChat,
+  analyzeTeamSkillGap,
+  compareProposals,
+  analyzeImpactMetrics
+} = require('../services/aiService');
 
 /**
  * POST /api/ai/chat - Persistent Role-Aware Conversational AI Assistant
@@ -136,6 +142,86 @@ router.post('/assistant', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('AI assistant error:', error.message);
     res.status(500).json({ error: 'AI Assistant query failed.', details: error.message });
+  }
+});
+
+/**
+ * POST /api/ai/team-skill-gap - AI Team Skill Gap Analysis
+ */
+router.post('/team-skill-gap', authenticateToken, async (req, res) => {
+  try {
+    const { problem_id, team_members } = req.body;
+    
+    let problemRequirements = {};
+    if (problem_id) {
+      const problem = db.prepare('SELECT title, description, category FROM problems WHERE id = ?').get(problem_id);
+      const analysis = db.prepare('SELECT required_skills_json, required_departments_json FROM problem_analysis WHERE problem_id = ?').get(problem_id);
+      problemRequirements = { problem, analysis };
+    }
+
+    const gapAnalysis = await analyzeTeamSkillGap(team_members || [], problemRequirements);
+
+    res.json({
+      is_ai_analysis: true,
+      analysis: gapAnalysis
+    });
+  } catch (error) {
+    console.error('Team skill gap error:', error.message);
+    res.status(500).json({ error: 'AI Team Skill Gap Analysis failed.', details: error.message });
+  }
+});
+
+/**
+ * POST /api/ai/proposal-analysis - AI Proposal Evaluation & Comparison
+ */
+router.post('/proposal-analysis', authenticateToken, async (req, res) => {
+  try {
+    const { problem_id } = req.body;
+    const problem = db.prepare('SELECT * FROM problems WHERE id = ?').get(problem_id);
+
+    if (!problem) {
+      return res.status(404).json({ error: 'Problem not found.' });
+    }
+
+    const proposals = db.prepare(`
+      SELECT pr.*, u.name as university_name
+      FROM proposals pr
+      JOIN universities u ON pr.university_id = u.id
+      WHERE pr.problem_id = ?
+    `).all(problem_id);
+
+    const comparison = await compareProposals(problem, proposals);
+
+    res.json({
+      is_ai_analysis: true,
+      comparison
+    });
+  } catch (error) {
+    console.error('AI proposal analysis error:', error.message);
+    res.status(500).json({ error: 'AI Proposal Analysis failed.', details: error.message });
+  }
+});
+
+/**
+ * GET /api/ai/impact-analysis - AI Impact Analysis
+ */
+router.get('/impact-analysis', authenticateToken, async (req, res) => {
+  try {
+    const totalProjects = db.prepare('SELECT count(*) as count FROM projects').get();
+    const totalDisasters = db.prepare('SELECT count(*) as count FROM disasters').get();
+    const totalUniversities = db.prepare('SELECT count(*) as count FROM universities').get();
+
+    const impactData = { totalProjects, totalDisasters, totalUniversities };
+
+    const impactAnalysis = await analyzeImpactMetrics(impactData);
+
+    res.json({
+      is_ai_analysis: true,
+      analysis: impactAnalysis
+    });
+  } catch (error) {
+    console.error('AI impact analysis error:', error.message);
+    res.status(500).json({ error: 'AI Impact Analysis failed.', details: error.message });
   }
 });
 

@@ -155,7 +155,11 @@ router.post('/:id/analyze', authenticateToken, authorizeRoles('GOVERNMENT'), asy
       return res.status(404).json({ error: 'Disaster incident not found.' });
     }
 
-    const aiAnalysis = await analyzeDisasterIncident(disaster);
+    const hospitals = db.prepare('SELECT * FROM hospitals').all();
+    const relocationSites = db.prepare('SELECT * FROM relocation_sites WHERE disaster_id = ?').all(disasterId);
+    const requirements = db.prepare('SELECT * FROM disaster_requirements WHERE disaster_id = ?').all(disasterId);
+
+    const aiAnalysis = await analyzeDisasterIncident(disaster, hospitals, relocationSites, requirements);
 
     res.json({
       message: 'AI Disaster Risk Assessment completed.',
@@ -163,8 +167,8 @@ router.post('/:id/analyze', authenticateToken, authorizeRoles('GOVERNMENT'), asy
       analysis: aiAnalysis
     });
   } catch (error) {
-    console.error('AI disaster analysis error:', error);
-    res.status(500).json({ error: 'AI disaster analysis failed.' });
+    console.error('AI disaster analysis error:', error.message);
+    res.status(500).json({ error: 'AI disaster analysis failed.', details: error.message });
   }
 });
 
