@@ -1,0 +1,24 @@
+{
+  "name": "solvelink-ai",
+  "version": "1.0.0",
+  "description": "SolveLink AI - Real Problems. Academic Solutions. Lasting Impact.",
+  "main": "server/src/index.js",
+  "scripts": {
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "server": "cd server && npm start",
+    "client": "cd client && npm run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build:client": "cd client && npm run build"
+  },
+  "keywords": [
+    "solvelink",
+    "ai",
+    "disaster-response",
+    "academic-collaboration"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
