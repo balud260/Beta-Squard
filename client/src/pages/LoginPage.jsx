@@ -49,7 +49,7 @@ export default function LoginPage() {
       redirectRole(loggedUser.role);
     } catch (err) {
       console.error('Quick login error:', err);
-      setError('Unable to sign in. Please check your email and password.');
+      setError(err.message || 'Unable to sign in. Please check your email and password.');
     } finally {
       setLoading(false);
     }
@@ -65,11 +65,12 @@ export default function LoginPage() {
       redirectRole(loggedUser.role);
     } catch (err) {
       console.error('Login submit error:', err);
-      setError('Unable to sign in. Please check your email and password.');
+      setError(err.message || 'Unable to sign in. Please check your email and password.');
     } finally {
       setLoading(false);
     }
   }
+
 
   return (
     <div style={{ backgroundColor: 'var(--bg-main)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
