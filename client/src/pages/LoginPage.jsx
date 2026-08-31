@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
+import SankalpLogo from '../components/SankalpLogo';
 import { Shield, GraduationCap, Building2, User, ArrowRight, Lock, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+
 
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
@@ -75,15 +77,23 @@ export default function LoginPage() {
 
       <main className="container" style={{ padding: '40px 24px 64px', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
         
-        {/* Page Title Header */}
-        <div style={{ textAlign: 'center', marginBottom: '40px', maxWidth: '600px' }}>
-          <h1 style={{ fontSize: '32px', fontWeight: 700, color: 'var(--navy)', marginBottom: '8px', letterSpacing: '-0.02em' }}>
-            Sign in to SolveLink AI
-          </h1>
+        {/* SANKALP AI Hero & Title Header */}
+        <div style={{ textAlign: 'center', marginBottom: '36px', maxWidth: '700px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <SankalpLogo variant="full" height={54} to="/" />
+            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--navy)', letterSpacing: '0.1em', marginTop: '6px' }}>
+              FROM PROBLEMS TO ACTION. FROM ACTION TO IMPACT.
+            </div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--terracotta)', letterSpacing: '0.05em' }}>
+              Government • Academia • Society
+            </div>
+          </div>
+
           <p style={{ fontSize: '15px', color: 'var(--text-muted)' }}>
             Choose your authority to continue to your workspace
           </p>
         </div>
+
 
         {/* THREE PRIMARY AUTHORITY CARDS GRID */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', width: '100%', maxWidth: '1100px', marginBottom: '40px' }}>
@@ -269,7 +279,7 @@ export default function LoginPage() {
               University Integrated Student Access
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-              Students access SolveLink through their university's integrated application to view eligible challenges, submit solution ideas, receive disaster alerts, and accept emergency missions.
+              Students access SANKALP AI through their university's integrated application to view eligible challenges, submit solution ideas, receive disaster alerts, and accept emergency missions.
             </p>
           </div>
 

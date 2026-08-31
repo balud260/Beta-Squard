@@ -21,12 +21,13 @@ export default function FloatingAIAssistant() {
   if (!user) return null;
 
   const getRoleTitle = (role) => {
-    if (role === 'GOVERNMENT') return 'SolveLink AI Assistant • Role: Government';
-    if (role === 'PROBLEM_OWNER') return 'SolveLink AI Assistant • Role: Problem Owner';
-    if (role === 'UNIVERSITY_ADMIN' || role === 'FACULTY') return 'SolveLink AI Assistant • Role: University';
-    if (role === 'STUDENT') return 'SolveLink AI Assistant • Role: Student Responder';
-    return 'SolveLink AI Assistant';
+    if (role === 'GOVERNMENT') return 'SANKALP AI Assistant • Role: Government';
+    if (role === 'PROBLEM_OWNER') return 'SANKALP AI Assistant • Role: Problem Owner';
+    if (role === 'UNIVERSITY_ADMIN' || role === 'FACULTY') return 'SANKALP AI Assistant • Role: University';
+    if (role === 'STUDENT') return 'SANKALP AI Assistant • Role: Student Responder';
+    return 'SANKALP AI Assistant';
   };
+
 
   const getRoleQuestions = (role) => {
     if (role === 'GOVERNMENT') {
@@ -48,17 +49,16 @@ export default function FloatingAIAssistant() {
         'Which problems best match our capabilities?',
         'Which challenges are awaiting review?',
         'What problems have we accepted?',
-        'Which emergency requests need volunteers?'
+        'Which students are available for deployment?'
       ];
     } else if (role === 'STUDENT') {
       return [
-        'What emergency missions are available?',
-        'What role am I assigned?',
-        'Which problems match my skills?',
-        'Show my submitted solution ideas'
+        'What emergency response missions need volunteers?',
+        'Which disaster tasks match my skills?',
+        'How do I confirm my deployment availability?'
       ];
     }
-    return ['What can SolveLink AI help me with?'];
+    return ['What can SANKALP AI help me with?'];
   };
 
   const suggestedQuestions = getRoleQuestions(user.role);
@@ -98,8 +98,8 @@ export default function FloatingAIAssistant() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          title="Open SolveLink AI Assistant"
-          aria-label="Open SolveLink AI Assistant"
+          title="Open SANKALP AI Assistant"
+          aria-label="Open SANKALP AI Assistant"
           style={{
             width: '54px',
             height: '54px',

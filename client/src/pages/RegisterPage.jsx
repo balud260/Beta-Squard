@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Shield, GraduationCap, Building2, User, Lock, Mail, Phone, MapPin, ArrowRight } from 'lucide-react';
+import SankalpLogo from '../components/SankalpLogo';
+
 
 export default function RegisterPage() {
   const [authorityType, setAuthorityType] = useState('GOVERNMENT');
@@ -104,18 +106,16 @@ export default function RegisterPage() {
       <div style={{ maxWidth: '720px', margin: '0 auto', width: '100%' }}>
 
         {/* Brand Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: 'var(--primary-navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-              <Shield size={24} />
-            </div>
-            <span style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary-navy)' }}>SolveLink AI</span>
+        <div style={{ textAlign: 'center', marginBottom: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ marginBottom: '0.75rem' }}>
+            <SankalpLogo variant="full" height={50} to="/" />
           </div>
-          <h2 style={{ fontSize: '1.35rem', color: 'var(--text-dark)', margin: 0 }}>Register Institutional Authority</h2>
+          <h2 style={{ fontSize: '1.35rem', color: 'var(--navy)', margin: 0, fontWeight: 700 }}>Register Institutional Authority</h2>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            Select your authority type below to register your institution.
+            Select your authority type below to register your institution on SANKALP AI.
           </p>
         </div>
+
 
         {/* Three Primary Authority Selector */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>

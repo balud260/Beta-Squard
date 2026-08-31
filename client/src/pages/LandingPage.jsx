@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import StatCard from '../components/StatCard';
 import ImpactChart from '../components/ImpactChart';
 import SimulatedUnivApp from '../components/SimulatedUnivApp';
+import SankalpLogo from '../components/SankalpLogo';
 import { api } from '../services/api';
 import { Shield, GraduationCap, Building2, Activity, ArrowRight, CheckCircle2, Users, FileText } from 'lucide-react';
 
@@ -38,19 +39,29 @@ export default function LandingPage() {
     <div style={{ backgroundColor: 'var(--bg-main)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar onOpenSimulatedApp={() => setIsSimulatedAppOpen(true)} />
 
-      {/* Spacious Hero Section */}
-      <section style={{ padding: '4rem 0 3rem 0', borderBottom: '1px solid var(--border-light)', backgroundColor: '#ffffff' }}>
-        <div className="container" style={{ textAlign: 'center', maxWidth: '900px' }}>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--navy)', marginBottom: '1rem', lineHeight: 1.2 }}>
-            SolveLink AI
-          </h1>
-          <p style={{ fontSize: '1.15rem', color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: 1.6 }}>
-            Real problems. Academic solutions. Lasting impact. Government coordinates, universities respond, students deliver.
+      {/* Hero Section */}
+      <section style={{ padding: '4rem 0 3.5rem 0', borderBottom: '1px solid var(--border-light)', backgroundColor: '#ffffff' }}>
+        <div className="container" style={{ textAlign: 'center', maxWidth: '960px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          
+          <div style={{ marginBottom: '20px' }}>
+            <SankalpLogo variant="full" height={80} to="/" />
+          </div>
+
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--navy)', letterSpacing: '0.08em', marginBottom: '8px', textTransform: 'uppercase' }}>
+            FROM PROBLEMS TO ACTION. FROM ACTION TO IMPACT.
+          </h2>
+
+          <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--terracotta)', marginBottom: '16px', letterSpacing: '0.04em' }}>
+            Government • Academia • Society
+          </div>
+
+          <p style={{ fontSize: '1.15rem', color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: 1.6, maxWidth: '780px' }}>
+            AI-powered collaboration connecting government authorities, problem submitters, and university solvers to turn real-world challenges into coordinated action and measurable impact.
           </p>
 
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginBottom: '2.5rem' }}>
             <Link className="btn btn-primary" to="/login" style={{ padding: '12px 28px', fontSize: '1rem' }}>
-              Sign In to Portal
+              Sign In to Platform
             </Link>
             <a className="btn btn-secondary" href="#how-it-works" style={{ padding: '12px 28px', fontSize: '1rem' }}>
               See How It Works
@@ -58,20 +69,20 @@ export default function LandingPage() {
           </div>
 
           {/* Connected Flow Steps */}
-          <div className="flow">
-            <span className="step">Problem</span>
+          <div className="flow" style={{ width: '100%', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <span className="step">PROBLEM</span>
             <span className="arrow">→</span>
-            <span className="step">AI</span>
+            <span className="step">AI ANALYSIS</span>
             <span className="arrow">→</span>
-            <span className="step">Government</span>
+            <span className="step">GOVERNMENT</span>
             <span className="arrow">→</span>
-            <span className="step">University</span>
+            <span className="step">UNIVERSITIES</span>
             <span className="arrow">→</span>
-            <span className="step">Students</span>
+            <span className="step">STUDENTS</span>
             <span className="arrow">→</span>
-            <span className="step">Solution</span>
+            <span className="step">SOLUTION</span>
             <span className="arrow">→</span>
-            <span className="step">Impact</span>
+            <span className="step">IMPACT</span>
           </div>
         </div>
       </section>
@@ -81,32 +92,32 @@ export default function LandingPage() {
         <div className="container">
           <div className="grid grid-cols-3" style={{ gap: '1.5rem' }}>
             <div className="card" style={{ padding: '2rem' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', color: 'var(--terracotta)', marginBottom: '8px' }}>
-                AUTHORITY
+              <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', color: 'var(--navy)', marginBottom: '8px' }}>
+                PRIMARY AUTHORITY
               </div>
-              <h3 style={{ fontSize: '1.25rem', color: 'var(--navy)', marginBottom: '8px' }}>Government</h3>
+              <h3 style={{ fontSize: '1.25rem', color: 'var(--navy)', marginBottom: '8px' }}>Government Authority</h3>
               <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                Coordinates every problem and disaster response, and monitors impact across universities.
+                Coordinates societal problems, validates urgency, assigns university responsibilities, issues disaster relocation orders, and monitors field impact.
               </p>
             </div>
 
             <div className="card" style={{ padding: '2rem' }}>
               <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', color: 'var(--terracotta)', marginBottom: '8px' }}>
-                SUBMITTER
+                PROBLEM SUBMITTER
               </div>
               <h3 style={{ fontSize: '1.25rem', color: 'var(--navy)', marginBottom: '8px' }}>Problem Owner</h3>
               <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                Hospitals, schools, NGOs and municipalities submit real problems and pick the best solution.
+                Hospitals, schools, NGOs, municipalities, and local companies submit real-world challenges and track accepted solutions.
               </p>
             </div>
 
             <div className="card" style={{ padding: '2rem' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', color: 'var(--terracotta)', marginBottom: '8px' }}>
-                SOLVER
+              <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', color: 'var(--status-success)', marginBottom: '8px' }}>
+                ACADEMIC SOLVER
               </div>
-              <h3 style={{ fontSize: '1.25rem', color: 'var(--navy)', marginBottom: '8px' }}>University</h3>
+              <h3 style={{ fontSize: '1.25rem', color: 'var(--navy)', marginBottom: '8px' }}>University Authority</h3>
               <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                Discovers eligible problems, builds teams, and delivers proposals through to deployment.
+                Discovers eligible problems, builds multidisciplinary student teams, submits proposals, and dispatches emergency response volunteers.
               </p>
             </div>
           </div>
@@ -130,7 +141,7 @@ export default function LandingPage() {
         <div className="container">
           <div style={{ textAlign: 'center', maxWidth: '700px', margin: '0 auto 3rem auto' }}>
             <span className="badge badge-primary" style={{ marginBottom: '0.75rem' }}>System Architecture</span>
-            <h2 className="section-title" style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Unified Coordination Platform</h2>
+            <h2 className="section-title" style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Unified SANKALP AI Platform</h2>
             <p className="text-muted">
               Connecting government authorities, problem submitters, and university solvers in a single workflow.
             </p>
@@ -218,17 +229,17 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer style={{ backgroundColor: 'var(--navy)', color: '#E2EBE6', padding: '3rem 0', marginTop: 'auto' }}>
-        <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#ffffff' }}>
-              SOLVELINK AI
+            <div style={{ fontWeight: 800, fontSize: '1.35rem', color: '#ffffff', letterSpacing: '0.04em' }}>
+              SANKALP AI
             </div>
-            <div style={{ fontSize: '0.8rem', marginTop: '0.2rem', color: '#E2EBE6' }}>
-              Real Problems. Academic Solutions. Lasting Impact.
+            <div style={{ fontSize: '0.85rem', marginTop: '0.2rem', color: '#E2EBE6' }}>
+              From Problems to Action. From Action to Impact.
             </div>
           </div>
-          <div style={{ fontSize: '0.85rem', color: '#E2EBE6' }}>
-            Government coordinates, universities respond, students deliver.
+          <div style={{ fontSize: '0.85rem', color: '#BFDFCC', fontWeight: 600 }}>
+            Government • Academia • Society
           </div>
         </div>
       </footer>

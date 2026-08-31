@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { Smartphone, ShieldAlert, CheckCircle, RefreshCw, X, XCircle } from 'lucide-react';
+import SankalpLogo from './SankalpLogo';
+
 
 export default function SimulatedUnivApp({ isOpen, onClose, onResponseRecorded }) {
   const [requirements, setRequirements] = useState([]);
@@ -65,10 +67,7 @@ export default function SimulatedUnivApp({ isOpen, onClose, onResponseRecorded }
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Smartphone size={20} color="var(--terracotta)" />
-            <span style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--navy)' }}>
-              University Student App
-            </span>
+            <SankalpLogo variant="compact" height={26} subtitle="STUDENT" to={null} />
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
             <X size={18} />
@@ -86,9 +85,10 @@ export default function SimulatedUnivApp({ isOpen, onClose, onResponseRecorded }
           {/* Top Notch */}
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#BFDFCC', marginBottom: '1rem' }}>
             <span>09:41</span>
-            <span>NIT Student Portal</span>
+            <span>SANKALP AI • NIT Student</span>
             <span>100% 🔋</span>
           </div>
+
 
           {/* Alert Card */}
           {selectedReq ? (

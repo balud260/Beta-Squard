@@ -7,7 +7,7 @@ export default function AIAssistantModal({ isOpen, onClose, disasterId }) {
   const [messages, setMessages] = useState([
     {
       sender: 'ai',
-      text: 'Hello Commander. I am SolveLink AI Command Assistant. Ask me any question regarding active disaster incident status, hospital bed availability, relocation safety, or volunteer demand.'
+      text: 'Hello Commander. I am SANKALP AI Command Assistant. Ask me any question regarding active disaster incident status, hospital bed availability, relocation safety, or volunteer demand.'
     }
   ]);
   const [loading, setLoading] = useState(false);

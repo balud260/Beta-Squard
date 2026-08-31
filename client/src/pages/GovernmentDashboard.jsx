@@ -24,9 +24,11 @@ export default function GovernmentDashboard() {
   const [loadingProblems, setLoadingProblems] = useState(false);
 
   useEffect(() => {
+    document.title = 'SANKALP AI | Government Disaster Command';
     loadGovernmentDashboard();
     loadResponsibleProblems();
   }, []);
+
 
   const [liveResponseStatus, setLiveResponseStatus] = useState(null);
 

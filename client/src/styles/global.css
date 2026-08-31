@@ -1,5 +1,16 @@
 :root {
-  /* Unified Enterprise Color Palette: Forest & Terracotta */
+  /* Official SANKALP AI Color Tokens (Forest Green & Terracotta Orange) */
+  --brand-green: #1B4332;
+  --brand-green-dark: #122E22;
+  --brand-green-light: #E8F7EC;
+
+  --brand-terracotta: #C2410C;
+  --brand-terracotta-dark: #9A340A;
+  --brand-terracotta-light: #FBE4D5;
+
+  --brand-navy: #1E2923;
+  --brand-charcoal: #2B1B12;
+
   --navy: #1B4332;
   --navy-dark: #122E22;
   --terracotta: #C2410C;
@@ -28,6 +39,8 @@
   --status-warning-bg: #FFF4E0;
   --status-danger: #C1272D;
   --status-danger-bg: #FDE8E8;
+  --status-info: #0284C7;
+  --status-info-bg: #E0F2FE;
 
   --border-light: #EED9BE;
   --border-subtle: #F5E6D3;
@@ -42,8 +55,9 @@
 
   /* Typography System */
   --font-primary: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-heading: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
+
 
 /* Global Reset & Layout Safety */
 *,

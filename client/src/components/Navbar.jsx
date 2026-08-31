@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Shield, GraduationCap, Building2, User, LogOut, ChevronDown, Smartphone } from 'lucide-react';
+import SankalpLogo from './SankalpLogo';
 
 export default function Navbar({ onOpenSimulatedApp }) {
   const { user, logout, quickLogin } = useAuth();
@@ -28,9 +29,9 @@ export default function Navbar({ onOpenSimulatedApp }) {
 
   const getPortalLabel = (role) => {
     if (role === 'GOVERNMENT') return 'GOVERNMENT DISASTER COMMAND';
-    if (role === 'PROBLEM_OWNER') return 'PROBLEM OWNER PORTAL';
+    if (role === 'PROBLEM_OWNER') return 'PROBLEM OWNER';
     if (role === 'UNIVERSITY_ADMIN' || role === 'FACULTY') return 'UNIVERSITY PORTAL';
-    if (role === 'STUDENT') return 'STUDENT INTEGRATED APP';
+    if (role === 'STUDENT') return 'STUDENT RESPONSE';
     return 'PLATFORM';
   };
 
@@ -50,27 +51,14 @@ export default function Navbar({ onOpenSimulatedApp }) {
         height: '60px'
       }}>
         
-        {/* Brand Logo & Portal Title */}
+        {/* Official SANKALP AI Logo & Portal Title */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', textDecoration: 'none' }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              backgroundColor: 'var(--navy)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontWeight: '800',
-              fontSize: '1rem'
-            }}>
-              S
-            </div>
-            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--navy)' }}>
-              SOLVELINK <span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '0.85rem' }}>| {user ? getPortalLabel(user.role) : 'PLATFORM'}</span>
-            </div>
-          </Link>
+          <SankalpLogo
+            variant="compact"
+            height={34}
+            subtitle={user ? getPortalLabel(user.role) : 'PLATFORM'}
+            to="/"
+          />
         </div>
 
         {/* Center Nav Links */}

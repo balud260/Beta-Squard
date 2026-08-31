@@ -33,8 +33,10 @@ export default function UniversityDashboard() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    document.title = 'SANKALP AI | University Portal';
     loadUniversityPortalData();
   }, []);
+
 
   async function loadUniversityPortalData() {
     try {

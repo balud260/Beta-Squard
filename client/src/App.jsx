@@ -18,7 +18,7 @@ function ProtectedRoute({ children, allowedRoles }) {
   if (loading) {
     return (
       <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-main)' }}>
-        <div style={{ fontWeight: 700, color: 'var(--primary-blue)' }}>Loading SolveLink AI...</div>
+        <div style={{ fontWeight: 700, color: 'var(--navy)' }}>Loading SANKALP AI...</div>
       </div>
     );
   }

@@ -21,9 +21,11 @@ export default function ProblemOwnerDashboard() {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
+    document.title = 'SANKALP AI | Problem Owner Portal';
     loadOwnerProblems();
     loadNotifications();
   }, [user]);
+
 
   async function loadOwnerProblems() {
     try {
