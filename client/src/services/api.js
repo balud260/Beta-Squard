@@ -8,14 +8,14 @@ function getApiBase() {
   }
   
   // If in browser and on production host (Vercel) without VITE_API_URL set,
-  // fallback to deployed Render backend URL or relative /api
+  // target deployed Render backend API directly
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    // If VITE_API_URL wasn't provided at build time on Vercel, check window config or default relative /api
-    return window.location.origin.endsWith('/api') ? window.location.origin : `${window.location.origin}/api`;
+    return 'https://beta-squard.onrender.com/api';
   }
 
   return '/api';
 }
+
 
 const API_BASE = getApiBase();
 
