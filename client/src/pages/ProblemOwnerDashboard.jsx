@@ -4,7 +4,9 @@ import ProposalComparison from '../components/ProposalComparison';
 import ImpactChart from '../components/ImpactChart';
 import SubmitChallengeModal from '../components/SubmitChallengeModal';
 import AIResultPanel from '../components/AIResultPanel';
+import ProblemLifecycleTracker from '../components/ProblemLifecycleTracker';
 import { api } from '../services/api';
+
 
 import { useAuth } from '../context/AuthContext';
 import { Building2, Plus, Sparkles, CheckCircle2, FileText, Send, Lock, GraduationCap, Check, ArrowRight, Bell, XCircle } from 'lucide-react';
@@ -243,6 +245,10 @@ export default function ProblemOwnerDashboard() {
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-medium)', marginBottom: '1rem', lineHeight: 1.45 }}>
                   {selectedProblem.description}
                 </p>
+
+                {/* SANKALP AI Problem Lifecycle Tracker */}
+                <ProblemLifecycleTracker currentStatus={selectedProblem.status} style={{ marginBottom: '1rem' }} />
+
 
                 {/* SANKALP AI Result Panel */}
                 {(loadingAi || aiAnalysis) && (

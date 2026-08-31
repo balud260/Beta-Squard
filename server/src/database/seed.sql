@@ -33,7 +33,8 @@ INSERT INTO organizations (id, name, type, location, lat, lng, contact_email) VA
 (1, 'District General Hospital', 'HOSPITAL', 'Central District Avenue', 28.6139, 77.2090, 'admin@districthospital.org'),
 (2, 'State Disaster Management Authority', 'GOVERNMENT', 'Capital Emergency HQ', 28.6100, 77.2300, 'sdma@state.gov.in'),
 (3, 'HealthForAll Global NGO', 'NGO', 'Health Enclave Sector 12', 28.5900, 77.2100, 'info@healthforall.org'),
-(4, 'Metro City Municipal Corporation', 'MUNICIPALITY', 'Metro City Sector 4', 28.6150, 77.2050, 'contact@metrocity.gov.in');
+(4, 'Metro City Municipal Corporation', 'MUNICIPALITY', 'Metro City Sector 4', 28.6150, 77.2050, 'contact@metrocity.gov.in'),
+(5, 'Rural Education & Welfare Foundation', 'NGO', 'District X Education Complex', 28.6250, 77.2100, 'contact@ruraleducation.org');
 
 -- 2. Insert Universities (5 Top Institutions)
 INSERT INTO universities (id, name, code, location, lat, lng, total_students, nss_capacity, ncc_capacity, research_focus, equipment_summary) VALUES
@@ -65,7 +66,7 @@ INSERT INTO users (id, name, email, password_hash, role, organization_id, univer
 (2, 'Dr. Sunita Deshmukh (Hospital Owner)', 'owner@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'PROBLEM_OWNER', 1, NULL, NULL, '+91 98765 00002', 'ACTIVE'),
 (3, 'Prof. Arvind Kulkarni (University)', 'university@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'UNIVERSITY_ADMIN', NULL, 1, NULL, '+91 98765 00003', 'ACTIVE'),
 (4, 'Aarav Mehta (Integrated Student)', 'student@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'STUDENT', NULL, 1, NULL, '+91 98765 00004', 'ACTIVE'),
-(5, 'Dr. Ananya Sen (NGO Problem Owner)', 'owner2@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'PROBLEM_OWNER', 3, NULL, NULL, '+91 98765 00005', 'ACTIVE'),
+(5, 'Dr. Ananya Sen (NGO Problem Owner)', 'owner2@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'PROBLEM_OWNER', 5, NULL, NULL, '+91 98765 00005', 'ACTIVE'),
 (6, 'Priya Nair (Faculty)', 'faculty@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'FACULTY', NULL, 1, NULL, '+91 98765 00006', 'ACTIVE');
 
 -- 6. Insert Student Record
@@ -80,31 +81,42 @@ INSERT INTO faculty (id, user_id, university_id, department_id, specialization, 
 INSERT INTO problems (id, title, description, category, subcategory, location, lat, lng, urgency, expected_impact, target_users, budget, timeline, owner_id, status) VALUES
 (1, 'Reduce Outpatient Waiting Time & OPD Queue Triage', 'High patient crowding in OPD department causing emergency delays. Requires automated digital queue triage, AI appointment slotting, and SMS status dispatch.', 'HEALTHCARE', 'Hospital Operations', 'District General Hospital OPD', 28.6139, 77.2090, 'HIGH', '3,000 daily OPD patients benefit from 50% reduced waiting time.', 'Outpatients, Hospital Triage Nurses, OPD Doctors', 200000, '3 Months', 2, 'PUBLISHED'),
 (2, 'Rural Tele-Healthcare & Emergency Alert Platform', 'Lack of immediate medical access in rural Sector 12 villages. Requires lightweight mobile diagnostic app, offline sync, emergency doctor dispatch system, and AI triage assistance.', 'HEALTHCARE', 'Rural Telemedicine', 'Rural Sector 12', 28.5900, 77.2100, 'HIGH', '15,000 rural families provided immediate tele-consultation & emergency dispatch.', 'Rural Patients, ASHA Workers, Emergency Doctors', 300000, '6 Months', 5, 'PUBLISHED'),
-(3, 'Flood Early Warning & River Level Sensor Network', 'River water overflow risk in low-lying district basin. Requires LoRaWAN river level sensors, AI surge prediction, and automated broadcast alert dispatcher.', 'CIVIC_INFRASTRUCTURE', 'Disaster Mitigation', 'District X Riverside', 28.6300, 77.2200, 'CRITICAL', '45,000 residents warned 4 hours prior to flood surge.', 'Disaster Officers, Emergency First Responders', 400000, '5 Months', 1, 'PUBLISHED');
+(3, 'Flood Early Warning & River Level Sensor Network', 'River water overflow risk in low-lying district basin. Requires LoRaWAN river level sensors, AI surge prediction, and automated broadcast alert dispatcher.', 'CIVIC_INFRASTRUCTURE', 'Disaster Mitigation', 'District X Riverside', 28.6300, 77.2200, 'CRITICAL', '45,000 residents warned 4 hours prior to flood surge.', 'Disaster Officers, Emergency First Responders', 400000, '5 Months', 1, 'PUBLISHED'),
+(4, 'Interactive Student Learning Platform for Rural Schools', 'A rural school district needs a digital learning platform to improve student learning outcomes, track progress analytics, and provide offline-sync AI tutoring for rural students.', 'EDUCATION', 'Digital Learning', 'Rural School District X', 28.6250, 77.2100, 'HIGH', '5,000 rural students gain personalized learning and 40% higher test performance.', 'Rural Students, Teachers, School Principal', 250000, '4 Months', 5, 'PROPOSALS_RECEIVED');
 
 -- 9. Insert AI Problem Analysis for Problems
 INSERT INTO problem_analysis (id, problem_id, category, subcategory, required_skills_json, required_technologies_json, required_departments_json, difficulty, urgency, social_impact, estimated_resources, solution_areas_json) VALUES
 (1, 1, 'HEALTHCARE', 'Hospital Operations', '["Queue Optimization", "Mobile App Development", "AI Slot Scheduling"]', '["Node.js", "React Native", "WhatsApp API"]', '["Computer Science & AI", "Emergency Medicine & Surgery"]', 'MODERATE', 'HIGH', 'CRITICAL', 'Kiosk Hardware (x4), Queue Server, SMS Gateway', '["Digital queue tokens", "Predictive doctor slotting", "WhatsApp triage"]'),
 (2, 2, 'HEALTHCARE', 'Rural Telemedicine', '["Tele-Consultation", "Mobile App (Offline Sync)", "AI Triage", "Medical Support"]', '["React", "Node.js", "SQLite", "TensorFlow Lite"]', '["Computer Science & AI", "Emergency Medicine & Surgery", "Community Health"]', 'HIGH', 'HIGH', 'CRITICAL', 'Mobile Test Kits, Telemedicine Server, ASHA Training', '["Offline medical record sync", "AI symptom checker", "Doctor dispatch"]'),
-(3, 3, 'CIVIC_INFRASTRUCTURE', 'Disaster Mitigation', '["GIS Mapping", "Drone Operation", "IoT Sensors", "Hydro-Modeling"]', '["LoRaWAN", "OpenStreetMap", "Python GIS"]', '["Geoinformatics & Remote Sensing", "Civil Engineering"]', 'HIGH', 'CRITICAL', 'CRITICAL', 'Ultrasonic River Sensors, Mesh Radios, GIS Server', '["Automated early warning", "Surge level predictor"]');
+(3, 3, 'CIVIC_INFRASTRUCTURE', 'Disaster Mitigation', '["GIS Mapping", "Drone Operation", "IoT Sensors", "Hydro-Modeling"]', '["LoRaWAN", "OpenStreetMap", "Python GIS"]', '["Geoinformatics & Remote Sensing", "Civil Engineering"]', 'HIGH', 'CRITICAL', 'CRITICAL', 'Ultrasonic River Sensors, Mesh Radios, GIS Server', '["Automated early warning", "Surge level predictor"]'),
+(4, 4, 'EDUCATION', 'Digital Learning', '["React", "Node.js", "AI/ML", "Data Analytics", "UX Design"]', '["React", "Node.js", "SQLite", "PWA Offline"]', '["Computer Science & AI", "Education Technology", "Data Science"]', 'MODERATE', 'HIGH', 'HIGH', 'Tablet Kiosks (x20), Cloud Server, Teacher Dashboard', '["Personalized AI Tutor", "Student Progress Analytics", "Offline Quiz Sync", "Teacher Dashboard"]');
 
 -- 10. Insert Problem Matches
 INSERT INTO problem_matches (id, problem_id, university_id, match_score, reasons_json) VALUES
 (1, 1, 1, 94, '["✓ Strong Computer Science & Medical Depts", "✓ Queue Optimization & AI focus", "✓ 35 qualified CS students"]'),
 (2, 1, 2, 96, '["✓ Apex Medical University & Hospital", "✓ OPD Operations & Emergency Medicine expertise"]'),
 (3, 2, 2, 96, '["✓ Top Emergency Medicine & Nursing Depts", "✓ Mobile ICU Van & Field Kits available", "✓ 400 NSS Medical Volunteers"]'),
-(4, 3, 1, 95, '["✓ Geoinformatics & Remote Sensing Dept", "✓ High-res Drones & GIS Servers", "✓ Civil Eng Hydro-modeling"]');
+(4, 3, 1, 95, '["✓ Geoinformatics & Remote Sensing Dept", "✓ High-res Drones & GIS Servers", "✓ Civil Eng Hydro-modeling"]'),
+(5, 4, 1, 92, '["✓ Computer Science & AI Department", "✓ Relevant Faculty Mentors (Dr. Anil Kumar)", "✓ Student Skill Availability (React, Node, AI/ML)", "✓ Geographic Proximity (District X)"]'),
+(6, 4, 5, 86, '["✓ State Technological University Software Dept", "✓ Web & Mobile Development Expertise"]'),
+(7, 4, 3, 81, '["✓ Metropolitan College of Engineering IoT & Robotics"]');
 
 -- 11. Insert University Problem Acceptances
 INSERT INTO university_problem_acceptances (id, university_id, problem_id, status, assigned_department_id, assigned_mentor_id) VALUES
 (1, 1, 1, 'ACCEPTED', 1, 1),
 (2, 1, 3, 'ACCEPTED', 3, 1),
-(3, 2, 2, 'ACCEPTED', 4, NULL);
+(3, 2, 2, 'ACCEPTED', 4, NULL),
+(4, 1, 4, 'PROPOSAL_SUBMITTED', 1, 1),
+(5, 5, 4, 'PROPOSAL_SUBMITTED', 1, NULL),
+(6, 3, 4, 'PROPOSAL_SUBMITTED', 6, NULL);
 
--- 12. Insert Proposals
+-- 12. Insert Competing Proposals for Scenario A (School Learning Platform)
 INSERT INTO proposals (id, problem_id, university_id, submitted_by, summary, approach, team_structure, cost, timeline, feasibility_score, impact_score, risk_level, status, version) VALUES
 (1, 1, 1, 3, 'SmartOPD-AI: Queue Optimization & Triage Kiosk System', 'Deploy touch-screen kiosks and QR token dispatch connected to predictive slotting engine.', '1 Faculty Lead, 4 CSE Students, 2 Medical Interns', 180000, '3 Months', 95, 96, 'LOW', 'SUBMITTED', 2),
-(2, 2, 2, 3, 'Apex TeleMed: Community Health Sync & Emergency Dispatch', 'Offline-first mobile app for ASHA workers with AI symptom triaging and mobile ICU van routing.', '2 Medical Faculty, 6 Nursing Students, 2 CS Students', 280000, '5 Months', 95, 98, 'LOW', 'SUBMITTED', 1);
+(2, 2, 2, 3, 'Apex TeleMed: Community Health Sync & Emergency Dispatch', 'Offline-first mobile app for ASHA workers with AI symptom triaging and mobile ICU van routing.', '2 Medical Faculty, 6 Nursing Students, 2 CS Students', 280000, '5 Months', 95, 98, 'LOW', 'SUBMITTED', 1),
+(3, 4, 1, 3, 'NIT EduLearn: Interactive Adaptive Learning Portal & Offline Sync Engine', 'Build a Progressive Web App (PWA) featuring personalized AI micro-tutoring, offline quiz sync, automated student progress analytics, and principal oversight dashboard.', 'Dr. Anil Kumar (Faculty Lead), Rahul (Frontend), Priya (Backend), Arjun (AI/ML), Sneha (UI/UX)', 200000, '4 Months', 95, 96, 'LOW', 'SUBMITTED', 1),
+(4, 4, 5, 3, 'STU Mobile Learn: Lightweight Low-Bandwidth Rural App', 'Native Android application optimized for 2G networks with audio lesson caching and basic quiz tracking.', '1 Faculty Mentor, 3 STU Developers', 150000, '3 Months', 88, 90, 'MEDIUM', 'SUBMITTED', 1),
+(5, 4, 3, 3, 'MCE AI Tutor & Interactive Multimedia Kiosk Suite', 'Hardware tablet kiosk deployment with AI voice interaction and automated grading analytics.', '2 Engineering Faculty, 5 MCE Developers', 250000, '5 Months', 92, 98, 'LOW', 'SUBMITTED', 1);
 
 -- 13. Insert Projects
 INSERT INTO projects (id, problem_id, proposal_id, university_id, title, status, progress_pct, lead_mentor_id) VALUES
