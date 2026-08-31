@@ -5,7 +5,7 @@ import StatCard from '../components/StatCard';
 import ImpactChart from '../components/ImpactChart';
 import SimulatedUnivApp from '../components/SimulatedUnivApp';
 import { api } from '../services/api';
-import { Shield, GraduationCap, Building2, Activity, Sparkles, ArrowRight, CheckCircle2, Users, FileText } from 'lucide-react';
+import { Shield, GraduationCap, Building2, Activity, ArrowRight, CheckCircle2, Users, FileText } from 'lucide-react';
 
 export default function LandingPage() {
   const [stats, setStats] = useState({
@@ -38,23 +38,22 @@ export default function LandingPage() {
     <div style={{ backgroundColor: 'var(--bg-main)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar onOpenSimulatedApp={() => setIsSimulatedAppOpen(true)} />
 
-      {/* Screen Frame matching User Design Concept */}
-      <div className="screen">
-        <div className="screen-label">1 · Landing Page</div>
-
-        {/* Hero Section */}
-        <div className="hero">
-          <h1>SolveLink AI</h1>
-          <p className="tag">
+      {/* Spacious Hero Section */}
+      <section style={{ padding: '4rem 0 3rem 0', borderBottom: '1px solid var(--border-light)', backgroundColor: '#ffffff' }}>
+        <div className="container" style={{ textAlign: 'center', maxWidth: '900px' }}>
+          <h1 style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--navy)', marginBottom: '1rem', lineHeight: 1.2 }}>
+            SolveLink AI
+          </h1>
+          <p style={{ fontSize: '1.15rem', color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: 1.6 }}>
             Real problems. Academic solutions. Lasting impact. Government coordinates, universities respond, students deliver.
           </p>
 
-          <div className="cta-row">
-            <Link className="btn primary" to="/login">
-              Sign in
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginBottom: '2.5rem' }}>
+            <Link className="btn btn-primary" to="/login" style={{ padding: '12px 28px', fontSize: '1rem' }}>
+              Sign In to Portal
             </Link>
-            <a className="btn ghost" href="#how-it-works">
-              See how it works
+            <a className="btn btn-secondary" href="#how-it-works" style={{ padding: '12px 28px', fontSize: '1rem' }}>
+              See How It Works
             </a>
           </div>
 
@@ -75,31 +74,47 @@ export default function LandingPage() {
             <span className="step">Impact</span>
           </div>
         </div>
+      </section>
 
-        {/* Three Primary Roles Cards */}
-        <div className="roles">
-          <div className="role-card">
-            <div className="who">AUTHORITY</div>
-            <h3>Government</h3>
-            <p>Coordinates every problem and disaster response, and monitors impact across universities.</p>
-          </div>
+      {/* Three Primary Roles Cards */}
+      <section style={{ padding: '3.5rem 0', backgroundColor: 'var(--bg-main)', borderBottom: '1px solid var(--border-light)' }}>
+        <div className="container">
+          <div className="grid grid-cols-3" style={{ gap: '1.5rem' }}>
+            <div className="card" style={{ padding: '2rem' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', color: 'var(--terracotta)', marginBottom: '8px' }}>
+                AUTHORITY
+              </div>
+              <h3 style={{ fontSize: '1.25rem', color: 'var(--navy)', marginBottom: '8px' }}>Government</h3>
+              <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Coordinates every problem and disaster response, and monitors impact across universities.
+              </p>
+            </div>
 
-          <div className="role-card">
-            <div className="who">SUBMITTER</div>
-            <h3>Problem Owner</h3>
-            <p>Hospitals, schools, NGOs and municipalities submit real problems and pick the best solution.</p>
-          </div>
+            <div className="card" style={{ padding: '2rem' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', color: 'var(--terracotta)', marginBottom: '8px' }}>
+                SUBMITTER
+              </div>
+              <h3 style={{ fontSize: '1.25rem', color: 'var(--navy)', marginBottom: '8px' }}>Problem Owner</h3>
+              <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Hospitals, schools, NGOs and municipalities submit real problems and pick the best solution.
+              </p>
+            </div>
 
-          <div className="role-card">
-            <div className="who">SOLVER</div>
-            <h3>University</h3>
-            <p>Discovers eligible problems, builds teams, and delivers proposals through to deployment.</p>
+            <div className="card" style={{ padding: '2rem' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', color: 'var(--terracotta)', marginBottom: '8px' }}>
+                SOLVER
+              </div>
+              <h3 style={{ fontSize: '1.25rem', color: 'var(--navy)', marginBottom: '8px' }}>University</h3>
+              <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Discovers eligible problems, builds teams, and delivers proposals through to deployment.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Statistics Row */}
-      <section style={{ padding: '2rem 0', backgroundColor: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+      {/* Statistics Section */}
+      <section style={{ padding: '2.5rem 0', backgroundColor: '#ffffff', borderBottom: '1px solid var(--border-light)' }}>
         <div className="container">
           <div className="grid grid-cols-4">
             <StatCard title="Problems Received" value={stats.challengesPosted || 128} subtitle="Active & Tracked" icon={FileText} color="blue" />
@@ -110,53 +125,51 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Capability Overview */}
+      {/* How It Works Capabilities */}
       <section id="how-it-works" style={{ padding: '4rem 0', backgroundColor: 'var(--bg-main)' }}>
         <div className="container">
           <div style={{ textAlign: 'center', maxWidth: '700px', margin: '0 auto 3rem auto' }}>
-            <span className="badge badge-primary" style={{ marginBottom: '0.75rem' }}>Core System Architecture</span>
-            <h2 style={{ fontSize: '2.2rem', marginBottom: '0.75rem', color: 'var(--navy)' }}>Unified Coordination Platform</h2>
-            <p style={{ color: 'var(--text-mute)' }}>
+            <span className="badge badge-primary" style={{ marginBottom: '0.75rem' }}>System Architecture</span>
+            <h2 className="section-title" style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Unified Coordination Platform</h2>
+            <p className="text-muted">
               Connecting government authorities, problem submitters, and university solvers in a single workflow.
             </p>
           </div>
 
           <div className="grid grid-cols-2">
-            {/* Capability A Card */}
-            <div className="card" style={{ padding: '1.75rem', borderTop: '4px solid var(--blue)' }}>
+            <div className="card" style={{ padding: '2rem', borderTop: '4px solid var(--terracotta)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: 'var(--blue-soft)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: 'var(--terracotta-soft)', color: 'var(--terracotta)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Building2 size={20} />
                 </div>
-                <h3 style={{ fontSize: '1.3rem', color: 'var(--navy)' }}>Societal Problem Workflow</h3>
+                <h3 style={{ fontSize: '1.25rem', color: 'var(--navy)' }}>Societal Problem Workflow</h3>
               </div>
-              <p style={{ color: 'var(--text-mute)', fontSize: '0.95rem', marginBottom: '1.25rem' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '1.25rem' }}>
                 Problems submitted by healthcare providers, schools, and local authorities are automatically assigned to responsible government departments and published to eligible university portals.
               </p>
               <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.875rem' }}>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--green)" /> AI Classification & Responsibility Routing</li>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--green)" /> University Acceptance & Student Team Formation</li>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--green)" /> Multi-Proposal Comparison & Government Approval</li>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--green)" /> Field Deployment & Outcome Monitoring</li>
+                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--status-success)" /> AI Classification &amp; Responsibility Routing</li>
+                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--status-success)" /> University Acceptance &amp; Student Team Formation</li>
+                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--status-success)" /> Multi-Proposal Comparison &amp; Government Approval</li>
+                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--status-success)" /> Field Deployment &amp; Outcome Monitoring</li>
               </ul>
             </div>
 
-            {/* Capability B Card */}
-            <div className="card" style={{ padding: '1.75rem', borderTop: '4px solid var(--navy)' }}>
+            <div className="card" style={{ padding: '2rem', borderTop: '4px solid var(--navy)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: 'var(--blue-soft)', color: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#E2EBE6', color: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Shield size={20} />
                 </div>
-                <h3 style={{ fontSize: '1.3rem', color: 'var(--navy)' }}>Disaster Response Command</h3>
+                <h3 style={{ fontSize: '1.25rem', color: 'var(--navy)' }}>Disaster Response Command</h3>
               </div>
-              <p style={{ color: 'var(--text-mute)', fontSize: '0.95rem', marginBottom: '1.25rem' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '1.25rem' }}>
                 Centralized emergency hazard exposure analysis, AI-scored relocation recommendations, hospital pressure tracking, and rapid student responder dispatch.
               </p>
               <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.875rem' }}>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--green)" /> Interactive Geospatial Hazard & Exposure Mapping</li>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--green)" /> AI Relocation Site Safety Evaluation</li>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--green)" /> Real-Time Hospital Capacity & Patient Inflow</li>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--green)" /> University-Integrated Emergency Dispatch</li>
+                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--status-success)" /> Interactive Geospatial Hazard &amp; Exposure Mapping</li>
+                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--status-success)" /> AI Relocation Site Safety Evaluation</li>
+                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--status-success)" /> Real-Time Hospital Capacity &amp; Patient Inflow</li>
+                <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CheckCircle2 size={16} color="var(--status-success)" /> University-Integrated Emergency Dispatch</li>
               </ul>
             </div>
           </div>
@@ -164,30 +177,30 @@ export default function LandingPage() {
       </section>
 
       {/* Disaster Command Section Preview */}
-      <section id="disaster-response" style={{ padding: '4rem 0', backgroundColor: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
+      <section id="disaster-response" style={{ padding: '4rem 0', backgroundColor: '#ffffff', borderTop: '1px solid var(--border-light)' }}>
         <div className="container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem' }}>
             <div>
-              <span className="badge badge-danger" style={{ marginBottom: '0.5rem' }}>Live Coordination</span>
-              <h2 style={{ fontSize: '2rem', color: 'var(--navy)' }}>Active Emergency Command Monitor</h2>
+              <span className="badge badge-danger" style={{ marginBottom: '0.5rem' }}>Live Incident Monitor</span>
+              <h2 className="section-title" style={{ fontSize: '1.75rem' }}>Active Emergency Command Monitor</h2>
             </div>
-            <Link to="/login" className="btn primary btn-sm">
+            <Link to="/login" className="btn btn-primary btn-sm">
               Open Command Center <ArrowRight size={14} />
             </Link>
           </div>
 
           <div className="grid grid-cols-3">
             {disasters.slice(0, 3).map((d) => (
-              <div key={d.id} className="card" style={{ padding: '1.25rem', borderLeft: '4px solid var(--red)' }}>
+              <div key={d.id} className="card" style={{ padding: '1.25rem', borderLeft: '4px solid var(--status-danger)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span className="badge badge-danger">{d.type}</span>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-mute)', fontWeight: 600 }}>{d.status}</span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>{d.status}</span>
                 </div>
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '0.4rem', color: 'var(--navy)' }}>{d.title}</h3>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-mute)', marginBottom: '1rem' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
                   {d.location} • {d.affected_population?.toLocaleString()} Affected
                 </p>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text)', backgroundColor: 'var(--bg-subtle)', padding: '0.65rem', borderRadius: '6px' }}>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-dark)', backgroundColor: 'var(--bg-subtle)', padding: '0.65rem', borderRadius: '6px' }}>
                   {d.hazard_info}
                 </div>
               </div>
@@ -204,17 +217,17 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer style={{ backgroundColor: 'var(--navy)', color: '#E7D9CC', padding: '3rem 0', marginTop: 'auto' }}>
+      <footer style={{ backgroundColor: 'var(--navy)', color: '#E2EBE6', padding: '3rem 0', marginTop: 'auto' }}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#ffffff' }}>
-              SolveLink AI
+              SOLVELINK AI
             </div>
-            <div style={{ fontSize: '0.8rem', marginTop: '0.2rem', color: '#BFDFCC' }}>
+            <div style={{ fontSize: '0.8rem', marginTop: '0.2rem', color: '#E2EBE6' }}>
               Real Problems. Academic Solutions. Lasting Impact.
             </div>
           </div>
-          <div style={{ fontSize: '0.85rem', color: '#BFDFCC' }}>
+          <div style={{ fontSize: '0.85rem', color: '#E2EBE6' }}>
             Government coordinates, universities respond, students deliver.
           </div>
         </div>

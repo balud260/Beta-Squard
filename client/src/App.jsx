@@ -11,7 +11,6 @@ import UniversityDashboard from './pages/UniversityDashboard';
 import StudentDashboard from './pages/StudentDashboard';
 import HospitalDashboard from './pages/HospitalDashboard';
 import FloatingAIAssistant from './components/FloatingAIAssistant';
-import DesignSwitcher from './components/DesignSwitcher';
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
@@ -39,9 +38,6 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        {/* Sticky Theme Switcher matching reference design code */}
-        <DesignSwitcher />
-
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />

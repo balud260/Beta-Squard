@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, X, Send, Bot, User, ChevronDown, RefreshCw } from 'lucide-react';
+import { Sparkles, X, Send, Bot, User, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
@@ -9,16 +9,24 @@ export default function FloatingAIAssistant() {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [lastFailedQuery, setLastFailedQuery] = useState(null);
   const chatEndRef = useRef(null);
 
-  // Auto scroll to bottom
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, loading]);
 
-  if (!user) return null; // Only show for authenticated users
+  if (!user) return null;
+
+  const getRoleTitle = (role) => {
+    if (role === 'GOVERNMENT') return 'SolveLink AI Assistant • Role: Government';
+    if (role === 'PROBLEM_OWNER') return 'SolveLink AI Assistant • Role: Problem Owner';
+    if (role === 'UNIVERSITY_ADMIN' || role === 'FACULTY') return 'SolveLink AI Assistant • Role: University';
+    if (role === 'STUDENT') return 'SolveLink AI Assistant • Role: Student Responder';
+    return 'SolveLink AI Assistant';
+  };
 
   const getRoleQuestions = (role) => {
     if (role === 'GOVERNMENT') {
@@ -63,16 +71,19 @@ export default function FloatingAIAssistant() {
     setMessages((prev) => [...prev, userMsg]);
     if (!textToSend) setQuery('');
     setLoading(true);
+    setLastFailedQuery(null);
 
     try {
       const res = await api.chatAI(promptText);
-      const botMsg = { id: Date.now() + 1, sender: 'bot', text: res.answer || 'Response generated from platform state.' };
+      const botMsg = { id: Date.now() + 1, sender: 'bot', text: res.answer || 'Analysis complete. State updated.', status: 'success' };
       setMessages((prev) => [...prev, botMsg]);
     } catch (err) {
+      setLastFailedQuery(promptText);
       const fallbackMsg = {
         id: Date.now() + 1,
         sender: 'bot',
-        text: 'AI Assistant is temporarily offline. You can still view your data directly from your dashboard tabs.'
+        text: 'AI analysis temporarily unavailable. Please try again.',
+        status: 'error'
       };
       setMessages((prev) => [...prev, fallbackMsg]);
     } finally {
@@ -83,7 +94,7 @@ export default function FloatingAIAssistant() {
   return (
     <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 1000 }}>
 
-      {/* Persistent Floating Trigger Button */}
+      {/* Floating Trigger Button */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
@@ -93,84 +104,84 @@ export default function FloatingAIAssistant() {
             width: '54px',
             height: '54px',
             borderRadius: '50%',
-            backgroundColor: 'var(--text-dark)',
+            backgroundColor: 'var(--navy)',
             color: '#fff',
             border: 'none',
-            boxShadow: 'var(--shadow-xl)',
+            boxShadow: 'var(--shadow-lg)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+            transition: 'transform 0.2s ease'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.08)'}
+          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.06)'}
           onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
         >
-          <Sparkles size={22} color="#fff" />
+          <Sparkles size={22} color="#ffffff" />
         </button>
       )}
 
-      {/* Floating Compact AI Panel */}
+      {/* Floating Compact Assistant Drawer */}
       {isOpen && (
         <div style={{
-          width: '380px',
+          width: '400px',
           maxWidth: 'calc(100vw - 32px)',
-          height: '520px',
+          height: '540px',
           maxHeight: 'calc(100vh - 100px)',
-          backgroundColor: '#fff',
+          backgroundColor: '#ffffff',
           borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-xl)',
+          boxShadow: 'var(--shadow-lg)',
           border: '1px solid var(--border-light)',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
-          animation: 'fadeIn 0.2s ease'
+          overflow: 'hidden'
         }}>
           
-          {/* Header */}
+          {/* Header Bar */}
           <div style={{
-            padding: '0.85rem 1.25rem',
-            backgroundColor: 'var(--text-dark)',
-            color: '#fff',
+            padding: '12px 16px',
+            backgroundColor: 'var(--navy)',
+            color: '#ffffff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: 'var(--primary-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Sparkles size={15} color="#fff" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: 'var(--terracotta)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Sparkles size={15} color="#ffffff" />
               </div>
               <div>
-                <div style={{ fontWeight: 800, fontSize: '0.9rem', lineHeight: 1.1 }}>SolveLink AI Assistant</div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)' }}>Role: {user.role.replace('_', ' ')}</div>
+                <div style={{ fontWeight: 700, fontSize: '13px', lineHeight: 1.1 }}>
+                  {getRoleTitle(user.role)}
+                </div>
               </div>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', opacity: 0.8 }}
+              style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', opacity: 0.8 }}
             >
               <X size={18} />
             </button>
           </div>
 
-          {/* Messages Transcript Area */}
-          <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', backgroundColor: 'var(--bg-main)', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          {/* Transcript Area */}
+          <div style={{ flex: 1, padding: '14px', overflowY: 'auto', backgroundColor: 'var(--bg-main)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             
             {/* Greeting */}
-            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
-              <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary-blue)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+              <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'var(--terracotta-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--terracotta)', flexShrink: 0 }}>
                 <Bot size={14} />
               </div>
-              <div style={{ backgroundColor: '#fff', padding: '0.75rem 0.9rem', borderRadius: '12px', fontSize: '0.85rem', border: '1px solid var(--border-light)', color: 'var(--text-dark)', maxWidth: '85%' }}>
-                Hi <strong>{user.name}</strong>! I'm your role-aware AI Assistant. How can I support your {user.role.toLowerCase().replace('_', ' ')} workflow today?
+              <div style={{ backgroundColor: '#ffffff', padding: '10px 14px', borderRadius: '10px', fontSize: '13px', border: '1px solid var(--border-light)', color: 'var(--text-dark)', maxWidth: '88%' }}>
+                Hi <strong>{user.name}</strong>! I am your AI Assistant. Ask any question regarding active challenges, proposals, or disaster response.
               </div>
             </div>
 
-            {/* Suggested Question Pills (show if few messages) */}
+            {/* Suggested Question Pills */}
             {messages.length === 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.4rem' }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Suggested Questions
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  Suggested Context Queries
                 </div>
                 {suggestedQuestions.map((q, idx) => (
                   <button
@@ -178,17 +189,14 @@ export default function FloatingAIAssistant() {
                     onClick={() => handleSendQuery(q)}
                     style={{
                       textAlign: 'left',
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '8px',
-                      backgroundColor: '#fff',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      backgroundColor: '#ffffff',
                       border: '1px solid var(--border-light)',
-                      fontSize: '0.8rem',
-                      color: 'var(--primary-blue)',
-                      cursor: 'pointer',
-                      transition: 'background 0.15s ease'
+                      fontSize: '12.5px',
+                      color: 'var(--navy)',
+                      cursor: 'pointer'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-light)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fff'}
                   >
                     💡 {q}
                   </button>
@@ -196,38 +204,49 @@ export default function FloatingAIAssistant() {
               </div>
             )}
 
-            {/* Message History */}
+            {/* Messages */}
             {messages.map((m) => (
               <div
                 key={m.id}
                 style={{
                   display: 'flex',
-                  gap: '0.6rem',
+                  gap: '8px',
                   alignItems: 'flex-start',
-                  justify: m.sender === 'user' ? 'flex-end' : 'flex-start'
+                  justifyContent: m.sender === 'user' ? 'flex-end' : 'flex-start'
                 }}
               >
                 {m.sender === 'bot' && (
-                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary-blue)', flexShrink: 0 }}>
-                    <Bot size={14} />
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: m.status === 'error' ? 'var(--status-danger-bg)' : 'var(--terracotta-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: m.status === 'error' ? 'var(--status-danger)' : 'var(--terracotta)', flexShrink: 0 }}>
+                    {m.status === 'error' ? <AlertCircle size={14} /> : <Bot size={14} />}
                   </div>
                 )}
 
                 <div style={{
-                  backgroundColor: m.sender === 'user' ? 'var(--text-dark)' : '#fff',
-                  color: m.sender === 'user' ? '#fff' : 'var(--text-dark)',
-                  padding: '0.75rem 0.9rem',
-                  borderRadius: '12px',
-                  fontSize: '0.85rem',
-                  border: m.sender === 'user' ? 'none' : '1px solid var(--border-light)',
-                  maxWidth: '85%',
+                  backgroundColor: m.sender === 'user' ? 'var(--navy)' : m.status === 'error' ? 'var(--status-danger-bg)' : '#ffffff',
+                  color: m.sender === 'user' ? '#ffffff' : m.status === 'error' ? 'var(--status-danger)' : 'var(--text-dark)',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  border: m.sender === 'user' ? 'none' : m.status === 'error' ? '1px solid #fca5a5' : '1px solid var(--border-light)',
+                  maxWidth: '88%',
                   lineHeight: 1.45
                 }}>
                   {m.text}
+                  {m.status === 'error' && lastFailedQuery && (
+                    <div style={{ marginTop: '8px' }}>
+                      <button
+                        onClick={() => handleSendQuery(lastFailedQuery)}
+                        className="btn btn-primary btn-sm"
+                        style={{ fontSize: '11px', padding: '4px 10px', backgroundColor: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}
+                      >
+                        <RefreshCw size={12} /> Retry Query
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {m.sender === 'user' && (
-                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'var(--terracotta)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', flexShrink: 0 }}>
                     <User size={14} />
                   </div>
                 )}
@@ -235,32 +254,32 @@ export default function FloatingAIAssistant() {
             ))}
 
             {loading && (
-              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                <RefreshCw size={14} className="spin" /> Querying database context & AI model...
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12.5px', padding: '4px 8px' }}>
+                <RefreshCw size={14} className="spin" /> Analyzing incident &amp; database state...
               </div>
             )}
 
             <div ref={chatEndRef} />
           </div>
 
-          {/* Input Bar */}
-          <div style={{ padding: '0.75rem', borderTop: '1px solid var(--border-light)', backgroundColor: '#fff' }}>
+          {/* Input Form */}
+          <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border-light)', backgroundColor: '#ffffff' }}>
             <form
               onSubmit={(e) => { e.preventDefault(); handleSendQuery(); }}
-              style={{ display: 'flex', gap: '0.5rem' }}
+              style={{ display: 'flex', gap: '8px' }}
             >
               <input
                 type="text"
-                placeholder="Ask anything about your workspace..."
+                placeholder="Ask AI Assistant..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                style={{ flex: 1, padding: '0.55rem 0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', fontSize: '0.85rem' }}
+                style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '13px' }}
               />
               <button
                 type="submit"
                 disabled={loading || !query.trim()}
                 className="btn btn-primary btn-sm"
-                style={{ padding: '0.55rem 0.75rem' }}
+                style={{ padding: '8px 14px' }}
               >
                 <Send size={15} />
               </button>
