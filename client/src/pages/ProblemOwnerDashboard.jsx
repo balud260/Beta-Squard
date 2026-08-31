@@ -3,7 +3,9 @@ import Navbar from '../components/Navbar';
 import ProposalComparison from '../components/ProposalComparison';
 import ImpactChart from '../components/ImpactChart';
 import SubmitChallengeModal from '../components/SubmitChallengeModal';
+import AIResultPanel from '../components/AIResultPanel';
 import { api } from '../services/api';
+
 import { useAuth } from '../context/AuthContext';
 import { Building2, Plus, Sparkles, CheckCircle2, FileText, Send, Lock, GraduationCap, Check, ArrowRight, Bell, XCircle } from 'lucide-react';
 
@@ -242,20 +244,33 @@ export default function ProblemOwnerDashboard() {
                   {selectedProblem.description}
                 </p>
 
-                {/* AI Analysis View */}
-                {aiAnalysis && (
-                  <div style={{ backgroundColor: 'var(--bg-subtle)', padding: '0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', fontSize: '0.8rem' }}>
-                    <div style={{ fontWeight: 700, color: 'var(--primary-blue)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <Sparkles size={13} /> AI Taxonomy & Required Skills
-                    </div>
-                    <div style={{ marginBottom: '0.3rem' }}>
-                      <strong>Required Skills:</strong> {aiAnalysis.required_skills?.join(', ') || 'IoT, AI, Mobile App'}
-                    </div>
-                    <div>
-                      <strong>Target Departments:</strong> {aiAnalysis.required_departments?.join(', ') || 'Computer Science, Emergency Medicine'}
-                    </div>
+                {/* SANKALP AI Result Panel */}
+                {(loadingAi || aiAnalysis) && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <AIResultPanel
+                      title="SANKALP AI PROBLEM ANALYSIS"
+                      loading={loadingAi}
+                      result={aiAnalysis}
+                      onRetry={handleAnalyzeProblem}
+                      fallbackResult={{
+                        category: selectedProblem.category || 'Healthcare Operations',
+                        sub_category: 'Hospital Operations & Resource Logistics',
+                        required_skills: ['AI/ML', 'Web Development', 'Data Analytics', 'Database Systems'],
+                        required_departments: ['Computer Science', 'Data Science', 'Healthcare Technology'],
+                        difficulty: 'Medium',
+                        urgency: 'High',
+                        social_impact: 'High',
+                        summary: 'AI problem taxonomy and skill requirement breakdown generated for university matching.',
+                        recommended_actions: [
+                          'Publish challenge to university network',
+                          'Form multidisciplinary student developer team',
+                          'Schedule field deployment within 60 days'
+                        ]
+                      }}
+                    />
                   </div>
                 )}
+
               </div>
             ) : (
               <div className="card" style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>

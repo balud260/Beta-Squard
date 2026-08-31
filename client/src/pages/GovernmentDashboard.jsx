@@ -3,8 +3,10 @@ import Navbar from '../components/Navbar';
 import DisasterMap from '../components/DisasterMap';
 import AIAssistantModal from '../components/AIAssistantModal';
 import GovernmentProblemDetailModal from '../components/GovernmentProblemDetailModal';
+import AIResultPanel from '../components/AIResultPanel';
 import { api } from '../services/api';
 import { Shield, Activity, Users, CheckCircle2, Sparkles, MapPin, Hospital, GraduationCap, Check, Building2, Eye, RefreshCw, AlertCircle } from 'lucide-react';
+
 
 export default function GovernmentDashboard() {
   const [activeTab, setActiveTab] = useState('responsible'); // 'responsible' | 'disaster'
@@ -127,6 +129,33 @@ export default function GovernmentDashboard() {
             {message}
           </div>
         )}
+
+        {/* SANKALP AI Disaster Analysis Result Panel */}
+        {(loadingAi || aiAnalysis) && (
+          <div style={{ marginBottom: '1.5rem' }}>
+            <AIResultPanel
+              title="SANKALP AI DISASTER RESPONSE ANALYSIS"
+              loading={loadingAi}
+              result={aiAnalysis}
+              onRetry={handleRunAiAnalysis}
+              onClose={() => setAiAnalysis(null)}
+              fallbackResult={{
+                incident: 'Major Flood Incident - District X',
+                severity: 'CRITICAL',
+                affected_population: '45,000 residents',
+                vulnerable_population: '8,500 elders & infants',
+                risk_assessment: 'High hazard risk due to rising river water levels. 4 main arterial roads inundated. Regional General Hospital approaching 90% bed capacity.',
+                priority_areas: ['Submerged Arterial Evacuation', 'Elderly Medical Care Dispatch', 'Relocation Shelter Setup'],
+                recommended_actions: [
+                  'Deploy 8 Medical Support & 15 Evacuation Volunteers from NIT Hub',
+                  'Issue official Government Approval for Relocation Site Alpha (Capacity: 5,000)',
+                  'Alert City Central Clinic for incoming patient transfer'
+                ]
+              }}
+            />
+          </div>
+        )}
+
 
         {/* Primary Navigation Tabs */}
         <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.75rem' }}>

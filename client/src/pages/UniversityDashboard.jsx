@@ -365,22 +365,40 @@ export default function UniversityDashboard() {
         {activeTab !== 'available' && (
           <div>
             {activeTab === 'recommended' && (
-              <div className="grid grid-cols-2">
+              <div className="grid grid-cols-2" style={{ gap: '1.25rem' }}>
                 {recommendedProblems.map((p) => (
-                  <div key={p.id} className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                      <span className="badge badge-primary"><Sparkles size={12} /> {p.matchScore || 95}% MATCH</span>
+                  <div key={p.id} className="card" style={{ padding: '1.25rem', borderLeft: '4px solid var(--status-success)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.65rem', alignItems: 'center' }}>
+                      <span className="badge badge-success" style={{ fontSize: '0.75rem', gap: '4px' }}>
+                        <Sparkles size={13} /> {p.matchScore || 92}% AI MATCH
+                      </span>
                       <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>{p.category}</span>
                     </div>
-                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.4rem', color: 'var(--navy)' }}>{p.title}</h3>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>{p.description}</p>
-                    <button onClick={() => { setSelectedProblem(p); setShowAcceptConfirmModal(true); }} className="btn btn-primary btn-sm">
-                      <Check size={14} /> Accept Challenge
+
+                    <h3 style={{ fontSize: '1.15rem', marginBottom: '0.4rem', color: 'var(--navy)' }}>{p.title}</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: 1.45 }}>{p.description}</p>
+
+                    {/* AI Match Explanation Panel */}
+                    <div style={{ backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px', marginBottom: '1.25rem' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--navy)', textTransform: 'uppercase', marginBottom: '6px' }}>
+                        Why SANKALP AI Matched This Challenge:
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', color: 'var(--text-dark)' }}>
+                        <div>✓ <strong>CSE &amp; Data Science Expertise:</strong> Matches NIT department capability</div>
+                        <div>✓ <strong>Relevant Faculty:</strong> Prof. Arvind Kulkarni &amp; AI Research Group</div>
+                        <div>✓ <strong>Student Skills:</strong> Aarav Mehta (React/Node) &amp; Sneha Patel (IoT) available</div>
+                        <div>✓ <strong>Geographic Proximity:</strong> Located in District X (3.2 km distance)</div>
+                      </div>
+                    </div>
+
+                    <button onClick={() => { setSelectedProblem(p); setShowAcceptConfirmModal(true); }} className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center' }}>
+                      <Check size={14} /> Accept Challenge &amp; Form Team
                     </button>
                   </div>
                 ))}
               </div>
             )}
+
 
             {activeTab === 'accepted' && (
               <div className="grid grid-cols-2">

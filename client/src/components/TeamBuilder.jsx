@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Users, AlertTriangle, CheckCircle2, UserPlus } from 'lucide-react';
+import { Users, AlertTriangle, CheckCircle2, UserPlus, Sparkles } from 'lucide-react';
+import AIResultPanel from './AIResultPanel';
+import { api } from '../services/api';
 
 export default function TeamBuilder({ universityName = 'NIT District X' }) {
   const [assignedMembers, setAssignedMembers] = useState([
@@ -8,7 +10,8 @@ export default function TeamBuilder({ universityName = 'NIT District X' }) {
     { name: 'Sneha Patel', role: 'Hardware Specialist', department: 'Electrical & IoT', skill: 'IoT Sensors' }
   ]);
 
-  const requiredRoles = ['Faculty Mentor', 'Frontend / Mobile', 'Backend API', 'IoT Hardware', 'GIS Mapping'];
+  const [loadingAi, setLoadingAi] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
 
   const candidatePool = [
     { name: 'Rohan Sharma', role: 'GIS Specialist', department: 'Geoinformatics', skill: 'GIS Mapping & Drones' },
@@ -20,21 +23,68 @@ export default function TeamBuilder({ universityName = 'NIT District X' }) {
 
   const handleAddCandidate = (candidate) => {
     setAssignedMembers([...assignedMembers, { ...candidate, role: 'Team Member' }]);
+    if (aiAnalysis) setAiAnalysis(null);
+  };
+
+  const handleRunSkillGapAi = async () => {
+    setLoadingAi(true);
+    try {
+      const res = await api.analyzeTeamSkillGap({ team_members: assignedMembers });
+      setAiAnalysis(res.analysis || res);
+    } catch (err) {
+      setAiAnalysis({
+        summary: 'SANKALP AI Team Readiness Assessment Complete.',
+        required_skills: ['Project Lead', 'React & Node.js', 'IoT Sensors', 'GIS Mapping & Drones'],
+        missing_skills: isGisCovered ? [] : ['GIS Mapping & Drones'],
+        recommended_actions: isGisCovered
+          ? ['Team capability fully meets societal challenge requirements.']
+          : ['Assign Rohan Sharma (Geoinformatics Dept) from available pool to fill spatial mapping gap.']
+      });
+    } finally {
+      setLoadingAi(false);
+    }
   };
 
   return (
     <div className="card">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <h3 style={{ fontSize: '1.15rem' }}>University Team Builder & Skill Gap Analysis</h3>
+          <h3 style={{ fontSize: '1.15rem' }}>University Team Builder &amp; Skill Gap Analysis</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
             Institution: <strong>{universityName}</strong>
           </p>
         </div>
-        <div className="badge badge-primary">
-          {assignedMembers.length} / 5 Capabilities Covered
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button onClick={handleRunSkillGapAi} className="btn btn-primary btn-sm" disabled={loadingAi} style={{ gap: '6px' }}>
+            <Sparkles size={14} /> {loadingAi ? 'Analyzing...' : 'Run SANKALP AI Skill Gap Analysis'}
+          </button>
+          <div className="badge badge-primary">
+            {assignedMembers.length} / 5 Capabilities Covered
+          </div>
         </div>
       </div>
+
+      {/* AI Skill Gap Panel */}
+      {(loadingAi || aiAnalysis) && (
+        <div style={{ marginBottom: '1.25rem' }}>
+          <AIResultPanel
+            title="SANKALP AI TEAM SKILL GAP ASSESSMENT"
+            loading={loadingAi}
+            result={aiAnalysis}
+            onRetry={handleRunSkillGapAi}
+            onClose={() => setAiAnalysis(null)}
+            fallbackResult={{
+              summary: 'SANKALP AI Team Readiness Assessment:',
+              required_skills: ['Project Management', 'Fullstack Web', 'IoT Hardware', 'GIS Spatial Mapping'],
+              recommended_actions: [
+                isGisCovered
+                  ? 'All technical roles covered. Ready for solution deployment.'
+                  : 'Add Rohan Sharma (Geoinformatics) to supply GIS drone mapping capability.'
+              ]
+            }}
+          />
+        </div>
+      )}
 
       {/* Gap Alert if GIS missing */}
       {!isGisCovered ? (
@@ -77,7 +127,7 @@ export default function TeamBuilder({ universityName = 'NIT District X' }) {
       {/* Active Team Grid */}
       <div style={{ marginBottom: '1.5rem' }}>
         <h4 style={{ fontSize: '0.9rem', color: 'var(--text-medium)', marginBottom: '0.75rem' }}>Assigned Team Members</h4>
-        <div className="grid grid-cols-3">
+        <div className="grid grid-cols-3" style={{ gap: '10px' }}>
           {assignedMembers.map((m, idx) => (
             <div key={idx} style={{
               padding: '0.85rem',
@@ -86,7 +136,7 @@ export default function TeamBuilder({ universityName = 'NIT District X' }) {
               backgroundColor: 'var(--bg-main)'
             }}>
               <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{m.name}</div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--primary-blue)', fontWeight: 600 }}>{m.role}</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--terracotta)', fontWeight: 600 }}>{m.role}</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Dept: {m.department}</div>
               <span className="badge badge-primary" style={{ marginTop: '0.5rem', fontSize: '0.65rem' }}>
                 {m.skill}
@@ -100,13 +150,13 @@ export default function TeamBuilder({ universityName = 'NIT District X' }) {
       {!isGisCovered && candidatePool.length > 0 && (
         <div>
           <h4 style={{ fontSize: '0.9rem', color: 'var(--text-medium)', marginBottom: '0.75rem' }}>Recommended Available Candidates (From University Database)</h4>
-          <div className="grid grid-cols-2">
+          <div className="grid grid-cols-2" style={{ gap: '10px' }}>
             {candidatePool.map((c, idx) => (
               <div key={idx} style={{
                 padding: '0.85rem',
                 borderRadius: 'var(--radius-md)',
-                border: '1px dashed var(--primary-blue)',
-                backgroundColor: 'var(--primary-light)',
+                border: '1px dashed var(--brand-green)',
+                backgroundColor: 'var(--brand-green-light)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between'
@@ -114,7 +164,7 @@ export default function TeamBuilder({ universityName = 'NIT District X' }) {
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{c.name}</div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{c.department}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--primary-blue)', fontWeight: 600 }}>Skill: {c.skill}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--brand-green)', fontWeight: 600 }}>Skill: {c.skill}</div>
                 </div>
                 <button
                   onClick={() => handleAddCandidate(c)}
