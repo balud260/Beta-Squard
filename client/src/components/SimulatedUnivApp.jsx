@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Smartphone, ShieldAlert, CheckCircle, RefreshCw, X } from 'lucide-react';
+import { Smartphone, ShieldAlert, CheckCircle, RefreshCw, X, XCircle } from 'lucide-react';
 
 export default function SimulatedUnivApp({ isOpen, onClose, onResponseRecorded }) {
   const [requirements, setRequirements] = useState([]);
   const [selectedReq, setSelectedReq] = useState(null);
   const [statusMsg, setStatusMsg] = useState('');
+  const [isDuplicate, setIsDuplicate] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -26,20 +27,27 @@ export default function SimulatedUnivApp({ isOpen, onClose, onResponseRecorded }
     }
   }
 
-  async function handleStudentAccept() {
+  async function handleStudentRespond(status = 'CONFIRMED') {
     if (!selectedReq || loading) return;
     setLoading(true);
+    setStatusMsg('');
+    setIsDuplicate(false);
+
     try {
       const res = await api.respondVolunteerMission({
         requirement_id: selectedReq.id,
-        status: 'CONFIRMED'
+        status
       });
 
-      setStatusMsg(`Response Confirmed! Shortage updated live in Government Command Center.`);
-      fetchRequirements();
-
-      if (onResponseRecorded) {
-        onResponseRecorded(res.requirement);
+      if (res.duplicate) {
+        setIsDuplicate(true);
+        setStatusMsg(res.message || "You're already registered for this mission.");
+      } else {
+        setStatusMsg(res.message || `Response recorded: ${status}`);
+        fetchRequirements();
+        if (onResponseRecorded) {
+          onResponseRecorded(res.requirement);
+        }
       }
     } catch (err) {
       setStatusMsg('Failed to submit response.');
@@ -90,10 +98,13 @@ export default function SimulatedUnivApp({ isOpen, onClose, onResponseRecorded }
               </div>
 
               <h4 style={{ fontSize: '1rem', color: '#ffffff', marginBottom: '0.4rem' }}>
-                {selectedReq.role_type} Volunteers Required
+                {selectedReq.disaster_title || 'Major Flood Incident'}
               </h4>
-              <div style={{ fontSize: '0.8rem', color: '#E2EBE6', marginBottom: '1rem' }}>
-                Location: {selectedReq.disaster_location || 'District X Flood Zone'} • Distance: 3.2 km
+              <div style={{ fontSize: '0.8rem', color: '#E2EBE6', marginBottom: '0.75rem' }}>
+                Role Required: <strong style={{ color: '#ffffff' }}>{selectedReq.role_type}</strong> • Location: {selectedReq.disaster_location || 'District X'}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#BFDFCC', marginBottom: '1rem' }}>
+                Issued by: Government Disaster Command Center
               </div>
 
               <div style={{
@@ -119,19 +130,39 @@ export default function SimulatedUnivApp({ isOpen, onClose, onResponseRecorded }
                 </div>
               </div>
 
-              {/* Accept Mission Button */}
-              <button
-                onClick={handleStudentAccept}
-                className="btn btn-primary"
-                disabled={loading}
-                style={{ width: '100%', padding: '10px', borderRadius: '8px' }}
-              >
-                {loading ? <RefreshCw size={16} className="spin" /> : <CheckCircle size={16} />}
-                I'm Available (Accept Mission)
-              </button>
+              {/* Action Buttons: I'm Available & Not Available */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <button
+                  onClick={() => handleStudentRespond('DECLINED')}
+                  className="btn btn-secondary"
+                  disabled={loading}
+                  style={{ padding: '8px', fontSize: '0.75rem', borderRadius: '8px' }}
+                >
+                  <XCircle size={14} /> Not Available
+                </button>
+
+                <button
+                  onClick={() => handleStudentRespond('CONFIRMED')}
+                  className="btn btn-primary"
+                  disabled={loading}
+                  style={{ padding: '8px', fontSize: '0.75rem', borderRadius: '8px' }}
+                >
+                  {loading ? <RefreshCw size={14} className="spin" /> : <CheckCircle size={14} />}
+                  I'm Available
+                </button>
+              </div>
 
               {statusMsg && (
-                <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#4ade80', textAlign: 'center', lineHeight: 1.4 }}>
+                <div style={{
+                  marginTop: '0.75rem',
+                  fontSize: '0.75rem',
+                  color: isDuplicate ? '#fde047' : '#4ade80',
+                  backgroundColor: isDuplicate ? 'rgba(234, 179, 8, 0.15)' : 'rgba(74, 222, 128, 0.15)',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  textAlign: 'center',
+                  lineHeight: 1.4
+                }}>
                   {statusMsg}
                 </div>
               )}

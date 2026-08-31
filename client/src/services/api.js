@@ -96,9 +96,16 @@ export const api = {
   getVolunteerRequirements: () => request('/volunteers/requirements'),
   respondVolunteerMission: (data) => request('/volunteers/respond', { method: 'POST', body: JSON.stringify(data) }),
 
+  // Emergency Response Workflow APIs
+  getActiveEmergencyRequests: () => request('/university/emergency/active'),
+  getEligibleStudents: (incidentId) => request(`/university/emergency/${incidentId}/eligible-students`),
+  notifyEmergencyStudents: (incidentId, data) => request(`/university/emergency/${incidentId}/notify`, { method: 'POST', body: JSON.stringify(data) }),
+  getDisasterResponseStatus: (incidentId) => request(`/disasters/${incidentId}/response`),
+
   // Universities
   getUniversities: () => request('/universities'),
   getUniversityDetail: (id) => request(`/universities/${id}`),
+
 
   // Notifications
   getNotifications: () => request('/notifications'),

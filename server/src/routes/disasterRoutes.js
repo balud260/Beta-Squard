@@ -144,6 +144,50 @@ router.get('/:id', authenticateToken, (req, res) => {
 });
 
 /**
+ * GET /api/disasters/:id/response - Live Government Response Monitoring
+ */
+router.get('/:id/response', authenticateToken, (req, res) => {
+  try {
+    const disasterId = req.params.id;
+    const disaster = db.prepare('SELECT * FROM disasters WHERE id = ?').get(disasterId);
+
+    if (!disaster) {
+      return res.status(404).json({ error: 'Disaster incident not found.' });
+    }
+
+    const requirements = db.prepare(`
+      SELECT dr.*,
+             (SELECT count(*) FROM volunteer_responses vr WHERE vr.requirement_id = dr.id AND vr.status = 'CONFIRMED') as confirmed_count
+      FROM disaster_requirements dr
+      WHERE dr.disaster_id = ?
+    `).all(disasterId);
+
+    const totalRequired = requirements.reduce((sum, r) => sum + (r.required_count || 0), 0);
+    const totalFulfilled = requirements.reduce((sum, r) => sum + (r.fulfilled_count || r.confirmed_count || 0), 0);
+    const remainingNeed = Math.max(0, totalRequired - totalFulfilled);
+
+    const breakdown = requirements.map(r => ({
+      role_type: r.role_type,
+      required_count: r.required_count,
+      fulfilled_count: r.fulfilled_count || r.confirmed_count || 0,
+      remaining_count: Math.max(0, r.required_count - (r.fulfilled_count || r.confirmed_count || 0))
+    }));
+
+    res.json({
+      disaster,
+      total_required: totalRequired,
+      total_volunteers: totalFulfilled,
+      remaining_need: remainingNeed,
+      requirements: breakdown
+    });
+  } catch (error) {
+    console.error('Fetch disaster response status error:', error);
+    res.status(500).json({ error: 'Failed to fetch disaster response status.' });
+  }
+});
+
+
+/**
  * POST /api/disasters/:id/analyze - AI Disaster Risk & Action Analysis (Government Controlled)
  */
 router.post('/:id/analyze', authenticateToken, authorizeRoles('GOVERNMENT'), async (req, res) => {

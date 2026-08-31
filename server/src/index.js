@@ -38,6 +38,8 @@ app.use('/api/disasters', disasterRoutes);
 app.use('/api/hospitals', hospitalRoutes);
 app.use('/api/volunteers', volunteerRoutes);
 app.use('/api/universities', universityRoutes);
+app.use('/api/university', universityRoutes);
+
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/impact', impactRoutes);
 app.use('/api/ai', aiRoutes);

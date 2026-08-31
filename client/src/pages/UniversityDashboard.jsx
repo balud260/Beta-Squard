@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import TeamBuilder from '../components/TeamBuilder';
+import AssignEmergencyModal from '../components/AssignEmergencyModal';
 import { api } from '../services/api';
-import { GraduationCap, Users, Award, BookOpen, Send, Plus, CheckCircle2, Sparkles, Building2, Check, ArrowRight, Clock, Eye, XCircle, AlertCircle, X, Filter } from 'lucide-react';
+import { GraduationCap, Users, Award, BookOpen, Send, Plus, CheckCircle2, Sparkles, Building2, Check, ArrowRight, Clock, Eye, XCircle, AlertCircle, X, Filter, ShieldAlert, ChevronRight } from 'lucide-react';
 
 export default function UniversityDashboard() {
   const [activeTab, setActiveTab] = useState('available');
@@ -12,12 +13,18 @@ export default function UniversityDashboard() {
   const [acceptedProblems, setAcceptedProblems] = useState([]);
   const [myProposals, setMyProposals] = useState([]);
   const [studentContributions, setStudentContributions] = useState([]);
+  const [activeEmergencyRequests, setActiveEmergencyRequests] = useState([]);
+  
   const [selectedProblem, setSelectedProblem] = useState(null);
   const [problemDetailModal, setProblemDetailModal] = useState(null);
   const [showAcceptConfirmModal, setShowAcceptConfirmModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('Outside department scope');
   const [showProposalModal, setShowProposalModal] = useState(false);
+  
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [selectedEmergencyIncident, setSelectedEmergencyIncident] = useState(null);
+  const [emergencySubTab, setEmergencySubTab] = useState('active');
 
   const [summary, setSummary] = useState('');
   const [approach, setApproach] = useState('');
@@ -48,6 +55,9 @@ export default function UniversityDashboard() {
 
       const contribRes = await api.getStudentContributions().catch(() => ({ contributions: [] }));
       setStudentContributions(contribRes.contributions || []);
+
+      const emRes = await api.getActiveEmergencyRequests().catch(() => ({ activeRequests: [] }));
+      setActiveEmergencyRequests(emRes.activeRequests || []);
     } catch (err) {
       console.error('Error loading university portal data:', err);
     }
@@ -112,6 +122,22 @@ export default function UniversityDashboard() {
     }
   }
 
+  function handleOpenEmergencyWorkflow(incident) {
+    setSelectedEmergencyIncident(incident || {
+      id: 1,
+      title: 'Major Flood Incident - District X',
+      severity: 'CRITICAL',
+      location: 'District X',
+      distance_km: 3.2
+    });
+    setShowEmergencyModal(true);
+  }
+
+  function handleEmergencyAssigned(result) {
+    setMessage(result.message + ' ' + (result.details || ''));
+    loadUniversityPortalData();
+  }
+
   const getCategoryClass = (cat) => {
     if (!cat) return 'category-pill-edu';
     const upper = cat.toUpperCase();
@@ -128,59 +154,57 @@ export default function UniversityDashboard() {
       <main className="container" style={{ padding: '1.5rem 1rem', flex: 1 }}>
         
         {message && (
-          <div style={{ backgroundColor: 'var(--status-success-bg)', color: 'var(--status-success)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem', fontWeight: 600, fontSize: '0.9rem' }}>
-            {message}
+          <div style={{ backgroundColor: 'var(--status-success-bg)', color: 'var(--status-success)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem', fontWeight: 600, fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{message}</span>
+            <button onClick={() => setMessage('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-success)' }}>
+              <X size={16} />
+            </button>
           </div>
         )}
 
         {/* Reference Top Sub-Navigation Tabs */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.4rem', overflowX: 'auto' }}>
+        <div className="tabs-scrollable">
           <button
             onClick={() => setActiveTab('available')}
-            className={`btn ${activeTab === 'available' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+            className={`btn btn-sm ${activeTab === 'available' ? 'btn-primary' : 'btn-secondary'}`}
           >
             Discovery ({publicProblems.length})
           </button>
           <button
             onClick={() => setActiveTab('recommended')}
-            className={`btn ${activeTab === 'recommended' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem', gap: '0.3rem' }}
+            className={`btn btn-sm ${activeTab === 'recommended' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ gap: '0.3rem' }}
           >
             <Sparkles size={13} /> Recommended ({recommendedProblems.length})
           </button>
           <button
             onClick={() => setActiveTab('accepted')}
-            className={`btn ${activeTab === 'accepted' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+            className={`btn btn-sm ${activeTab === 'accepted' ? 'btn-primary' : 'btn-secondary'}`}
           >
             Accepted Problems ({acceptedProblems.length})
           </button>
           <button
             onClick={() => setActiveTab('proposals')}
-            className={`btn ${activeTab === 'proposals' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+            className={`btn btn-sm ${activeTab === 'proposals' ? 'btn-primary' : 'btn-secondary'}`}
           >
             Proposals ({myProposals.length})
           </button>
           <button
             onClick={() => setActiveTab('contributions')}
-            className={`btn ${activeTab === 'contributions' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+            className={`btn btn-sm ${activeTab === 'contributions' ? 'btn-primary' : 'btn-secondary'}`}
           >
             Student Submissions ({studentContributions.length})
           </button>
           <button
             onClick={() => setActiveTab('emergency-requests')}
-            className={`btn ${activeTab === 'emergency-requests' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem', color: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}
+            className={`btn btn-sm ${activeTab === 'emergency-requests' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ color: activeTab === 'emergency-requests' ? '#fff' : 'var(--status-danger)', borderColor: 'var(--status-danger)' }}
           >
             🚨 Emergency Requests
           </button>
           <button
             onClick={() => setActiveTab('team')}
-            className={`btn ${activeTab === 'team' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+            className={`btn btn-sm ${activeTab === 'team' ? 'btn-primary' : 'btn-secondary'}`}
           >
             Team Builder
           </button>
@@ -189,169 +213,108 @@ export default function UniversityDashboard() {
         {/* MAIN THREE-COLUMN REFERENCE LAYOUT FOR 'AVAILABLE' DISCOVERY */}
         {activeTab === 'available' && (
           <div className="univ-portal-grid">
-
             
             {/* LEFT COLUMN: Hero Metric Card + Discovery Filters */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              
-              {/* Dark Hero Metric Card matching Reference Screenshot */}
               <div className="hero-card-dark" style={{ minHeight: '190px' }}>
                 <div>
                   <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255,255,255,0.7)', marginBottom: '0.5rem' }}>
                     ACCEPTED PROBLEMS
                   </div>
-                  <h2>0{acceptedProblems.length || 8}</h2>
-                  <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.8)', margin: '0.6rem 0 1rem', lineHeight: 1.4 }}>
-                    3 new challenges matched your expertise in CSE this week.
-                  </p>
+                  <div style={{ fontSize: '2.4rem', fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>
+                    0{acceptedProblems.length}
+                  </div>
                 </div>
-                <button
-                  onClick={() => setActiveTab('accepted')}
-                  style={{
-                    backgroundColor: 'rgba(255,255,255,0.15)',
-                    color: '#ffffff',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    borderRadius: '8px',
-                    padding: '0.45rem',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  View All Assignments
-                </button>
+
+                <div style={{ marginTop: '1.25rem', paddingTop: '0.85rem', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--terracotta-soft)', marginBottom: '0.2rem' }}>
+                    NATIONAL INSTITUTE OF TECHNOLOGY
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)' }}>
+                    Active Response Node • District X
+                  </div>
+                </div>
               </div>
 
-              {/* Discovery Filters Panel matching Reference */}
+              {/* Discovery Filters Panel */}
               <div className="card" style={{ padding: '1.25rem' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Filter size={13} /> DISCOVERY FILTERS
+                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyBetween: 'space-between' }}>
+                  <span>DISCOVERY FILTERS</span>
+                  <Filter size={13} />
                 </div>
 
-                {/* Domain Category Badges */}
-                <div style={{ marginBottom: '1.25rem' }}>
-                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-dark)', marginBottom: '0.5rem' }}>
-                    DOMAIN
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-medium)', marginBottom: '0.35rem', display: 'block' }}>Category</label>
+                    <select className="btn btn-secondary" style={{ width: '100%', fontSize: '0.8rem', padding: '0.45rem' }}>
+                      <option>All Categories</option>
+                      <option>Disaster Management</option>
+                      <option>Healthcare &amp; Sanitation</option>
+                      <option>Civic Infrastructure</option>
+                      <option>Education</option>
+                    </select>
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                    <span className="category-pill category-pill-edu">Education</span>
-                    <span className="category-pill category-pill-health">Health</span>
-                    <span className="category-pill category-pill-agri">Agriculture</span>
-                  </div>
-                </div>
 
-                {/* Department Checkboxes */}
-                <div style={{ marginBottom: '1.25rem' }}>
-                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-dark)', marginBottom: '0.5rem' }}>
-                    DEPARTMENT
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-medium)', marginBottom: '0.35rem', display: 'block' }}>Urgency Level</label>
+                    <select className="btn btn-secondary" style={{ width: '100%', fontSize: '0.8rem', padding: '0.45rem' }}>
+                      <option>All Urgencies</option>
+                      <option>CRITICAL</option>
+                      <option>HIGH</option>
+                      <option>MEDIUM</option>
+                    </select>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-medium)' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
-                      <input type="checkbox" defaultChecked /> CSE / Software
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
-                      <input type="checkbox" defaultChecked /> AI + Robotics
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
-                      <input type="checkbox" /> Environmental
-                    </label>
-                  </div>
-                </div>
-
-                {/* Bottom Ranking Indicator */}
-                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
-                  <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>University Ranking</span>
-                  <span style={{ fontWeight: 800, color: 'var(--accent-purple)' }}>Top 5%</span>
                 </div>
               </div>
-
             </div>
 
-            {/* CENTER COLUMN: Available Societal Challenges horizontal cards */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h2 style={{ fontSize: '1.25rem', color: 'var(--text-dark)' }}>Available Societal Challenges</h2>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                  Showing {publicProblems.length} open challenges
-                </span>
+            {/* CENTER COLUMN: Available Societal Challenges */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                AVAILABLE SOCIETAL CHALLENGES ({publicProblems.length})
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {publicProblems.map((p, idx) => (
-                  <div key={p.id} className="card" style={{ padding: '1.25rem', position: 'relative' }}>
-                    
-                    {/* Top Row: #ID tag, Category pill, Match score badge */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>
-                          #00{p.id}
-                        </span>
-                        <span className={`category-pill ${getCategoryClass(p.category)}`}>
-                          {p.category}
-                        </span>
-                      </div>
-                      <span className="badge badge-success" style={{ fontSize: '0.7rem', backgroundColor: '#ecfdf5', color: '#047857' }}>
-                        {92 - idx * 3}% Skill Match
+                {publicProblems.map((p) => (
+                  <div key={p.id} className="card" style={{ padding: '1.25rem', transition: 'border-color 0.15s ease' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem', flexWrap: 'wrap', gap: '8px' }}>
+                      <span className={`category-pill ${getCategoryClass(p.category)}`}>
+                        {p.category}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                        Client: {p.organization_name || 'Client Org'}
                       </span>
                     </div>
 
-                    {/* Problem Title */}
-                    <h3 style={{ fontSize: '1.1rem', color: 'var(--text-dark)', marginBottom: '0.4rem', fontWeight: 700 }}>
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.4rem', color: 'var(--navy)', cursor: 'pointer' }} onClick={() => handleOpenProblemDetail(p)}>
                       {p.title}
                     </h3>
-
-                    {/* Short Description Excerpt */}
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.45, marginBottom: '1rem' }}>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: 1.5 }}>
                       {p.description}
                     </p>
 
-                    {/* Bottom Action Bar */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.75rem' }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-light)', paddingTop: '0.85rem', flexWrap: 'wrap', gap: '8px' }}>
+                      <div className="metadata-row">
                         <span>📍 {p.location}</span>
-                        <span>•</span>
-                        <span>Urgency: <strong>{p.urgency}</strong></span>
+                        <span>Urgency: <strong style={{ color: p.urgency === 'CRITICAL' ? 'var(--status-danger)' : 'var(--text-dark)' }}>{p.urgency}</strong></span>
                       </div>
 
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button
-                          onClick={() => handleOpenProblemDetail(p)}
-                          className="btn btn-secondary btn-sm"
-                          style={{ fontSize: '0.75rem' }}
-                        >
-                          View Details
+                        <button onClick={() => handleOpenProblemDetail(p)} className="btn btn-secondary btn-sm">
+                          <Eye size={14} /> View Details
                         </button>
-
-                        {p.user_acceptance_status === 'ACCEPTED' ? (
-                          <span className="badge badge-success" style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem' }}>
-                            ✓ Accepted
-                          </span>
-                        ) : p.user_acceptance_status === 'REJECTED' ? (
-                          <span className="badge badge-danger" style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem' }}>
-                            Declined
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => { setSelectedProblem(p); setShowAcceptConfirmModal(true); }}
-                            className="btn btn-primary btn-sm"
-                            style={{ fontSize: '0.75rem', backgroundColor: 'var(--text-dark)' }}
-                          >
-                            View & Apply
-                          </button>
-                        )}
+                        <button onClick={() => { setSelectedProblem(p); setShowAcceptConfirmModal(true); }} className="btn btn-primary btn-sm">
+                          <Check size={14} /> Accept Challenge
+                        </button>
                       </div>
                     </div>
-
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* RIGHT COLUMN: Team Activity & Success Insights matching Reference */}
+            {/* RIGHT COLUMN: Team Activity & Success Insights */}
             <div className="univ-portal-right-rail" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-
-              
-              {/* Team Activity Panel */}
               <div className="card" style={{ padding: '1.25rem' }}>
                 <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>
                   TEAM ACTIVITY
@@ -360,90 +323,57 @@ export default function UniversityDashboard() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                   <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
                     <div style={{ width: '30px', height: '30px', borderRadius: '50%', backgroundColor: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.75rem' }}>
+                      P
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-dark)' }}>Prof. Ramesh Gupta</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Assigned to Flood Early Warning</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', backgroundColor: '#e0e7ff', color: '#4338ca', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.75rem' }}>
                       A
                     </div>
-                    <div style={{ flex: 1, fontSize: '0.75rem' }}>
-                      <div style={{ fontWeight: 700, color: 'var(--text-dark)' }}>Team Alpha</div>
-                      <div style={{ color: 'var(--text-muted)' }}>Submitted Proposal for #004</div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-dark)' }}>Aarav Mehta (Student Lead)</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Submitted IoT Sensor Prototype</div>
                     </div>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>3m ago</span>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', backgroundColor: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.75rem' }}>
-                      B
-                    </div>
-                    <div style={{ flex: 1, fontSize: '0.75rem' }}>
-                      <div style={{ fontWeight: 700, color: 'var(--text-dark)' }}>Team Beta</div>
-                      <div style={{ color: 'var(--text-muted)' }}>Design Phase: Smart Grid</div>
-                    </div>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>1h ago</span>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', backgroundColor: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.75rem' }}>
-                      M
-                    </div>
-                    <div style={{ flex: 1, fontSize: '0.75rem' }}>
-                      <div style={{ fontWeight: 700, color: 'var(--text-dark)' }}>Lab-X</div>
-                      <div style={{ color: 'var(--text-muted)' }}>Prototype Testing (90%)</div>
-                    </div>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>2h ago</span>
                   </div>
                 </div>
               </div>
 
-              {/* Success Insights Card matching Reference */}
-              <div className="card" style={{ padding: '1.25rem' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>
-                  SUCCESS INSIGHTS
+              <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--navy)', color: '#ffffff' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255,255,255,0.7)', marginBottom: '0.5rem' }}>
+                  ACADEMIC IMPACT SCORE
                 </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div style={{ backgroundColor: 'var(--bg-subtle)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
-                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>IMPACT CREATED</div>
-                    <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--accent-purple)' }}>12.4k <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Lives Touched</span></div>
-                  </div>
-
-                  <div style={{ backgroundColor: 'var(--bg-subtle)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
-                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>PROPOSALS WON</div>
-                    <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--status-success)' }}>84% <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Success Rate</span></div>
-                  </div>
-
-                  <div style={{ backgroundColor: 'var(--bg-subtle)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
-                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>NEXT DEADLINE</div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-dark)' }}>Feb 24, 2024</div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--status-danger)', fontWeight: 700 }}>FINAL REPORT #009</div>
-                  </div>
+                <div style={{ fontSize: '2rem', fontWeight: 800, color: '#ffffff', marginBottom: '0.2rem' }}>
+                  94.8 <span style={{ fontSize: '0.8rem', color: 'var(--status-success-bg)', fontWeight: 600 }}>Top Tier</span>
                 </div>
-
-                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '0.75rem', marginTop: '1rem', textAlign: 'center' }}>
-                  <a href="#switch" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                    Switch to Problem Owner Portal →
-                  </a>
+                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>
+                  14 societal challenges solved &amp; deployed in District X
                 </div>
               </div>
-
             </div>
 
           </div>
         )}
 
-        {/* OTHER TABS (Recommended, Accepted, Proposals, Contributions, Emergency, Team) */}
+        {/* OTHER TABS */}
         {activeTab !== 'available' && (
-          <div style={{ marginTop: '1rem' }}>
+          <div>
             {activeTab === 'recommended' && (
               <div className="grid grid-cols-2">
                 {recommendedProblems.map((p) => (
                   <div key={p.id} className="card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                      <span className="badge badge-primary">{p.match_score || 94}% MATCH</span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>{p.organization_name}</span>
+                      <span className="badge badge-primary"><Sparkles size={12} /> {p.matchScore || 95}% MATCH</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>{p.category}</span>
                     </div>
-                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.4rem' }}>{p.title}</h3>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.85rem' }}>{p.description}</p>
-                    <button onClick={() => { setSelectedProblem(p); setShowProposalModal(true); }} className="btn btn-primary" style={{ width: '100%' }}>
-                      Submit Proposal
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.4rem', color: 'var(--navy)' }}>{p.title}</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>{p.description}</p>
+                    <button onClick={() => { setSelectedProblem(p); setShowAcceptConfirmModal(true); }} className="btn btn-primary btn-sm">
+                      <Check size={14} /> Accept Challenge
                     </button>
                   </div>
                 ))}
@@ -458,7 +388,7 @@ export default function UniversityDashboard() {
                       <span className="badge badge-success">ACCEPTED WORKSPACE</span>
                       <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>{p.organization_name}</span>
                     </div>
-                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.4rem' }}>{p.title}</h3>
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.4rem', color: 'var(--navy)' }}>{p.title}</h3>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>{p.description}</p>
                     <button onClick={() => { setSelectedProblem(p); setShowProposalModal(true); }} className="btn btn-primary btn-sm">
                       {p.proposal_submitted ? 'Update Proposal' : 'Submit Proposal'}
@@ -476,7 +406,7 @@ export default function UniversityDashboard() {
                       <span className="badge badge-primary">{prop.status}</span>
                       <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>{prop.organization_name}</span>
                     </div>
-                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.4rem' }}>{prop.summary}</h3>
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.4rem', color: 'var(--navy)' }}>{prop.summary}</h3>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Est. Cost: ₹{prop.cost?.toLocaleString()} • Timeline: {prop.timeline}</div>
                   </div>
                 ))}
@@ -491,24 +421,132 @@ export default function UniversityDashboard() {
                       <span className="badge badge-primary">{c.status}</span>
                       <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Student: {c.student_name || 'Aarav Mehta'}</span>
                     </div>
-                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.3rem' }}>{c.title}</h3>
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.3rem', color: 'var(--navy)' }}>{c.title}</h3>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{c.description}</p>
                   </div>
                 ))}
               </div>
             )}
 
+            {/* FUNCTIONAL EMERGENCY REQUESTS TAB */}
             {activeTab === 'emergency-requests' && (
-              <div className="card" style={{ borderLeft: '4px solid var(--status-danger)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span className="badge badge-danger">CRITICAL FLOOD INCIDENT</span>
-                  <span className="badge badge-primary">HIGH PRIORITY HUB (3.2 km)</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                
+                {/* Emergency Requests Sub-Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => setEmergencySubTab('active')}
+                      className={`btn btn-sm ${emergencySubTab === 'active' ? 'btn-primary' : 'btn-secondary'}`}
+                    >
+                      Active Incidents ({activeEmergencyRequests.length || 1})
+                    </button>
+                    <button
+                      onClick={() => setEmergencySubTab('completed')}
+                      className={`btn btn-sm ${emergencySubTab === 'completed' ? 'btn-primary' : 'btn-secondary'}`}
+                    >
+                      Completed Missions (02)
+                    </button>
+                  </div>
+
+                  <span className="badge badge-danger">
+                    <ShieldAlert size={12} /> GOVERNMENT EMERGENCY DISPATCH ACTIVE
+                  </span>
                 </div>
-                <h3 style={{ fontSize: '1.2rem', marginBottom: '0.4rem' }}>Major Flood Incident - District X</h3>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>Issued by Government Disaster Command Center</p>
-                <button className="btn btn-primary" style={{ backgroundColor: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}>
-                  Assign Response Teams & Notify Students
-                </button>
+
+                {emergencySubTab === 'active' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {(activeEmergencyRequests.length > 0 ? activeEmergencyRequests : [
+                      {
+                        incident: { id: 1, title: 'Major Flood Incident - District X', severity: 'CRITICAL', location: 'District X', distance_km: 3.2 },
+                        status: 'PARTIALLY FULFILLED',
+                        requirements: [
+                          { role_type: 'Medical Support', required_count: 10, fulfilled_count: 8 },
+                          { role_type: 'Evacuation Support', required_count: 20, fulfilled_count: 13 },
+                          { role_type: 'Technical Support', required_count: 5, fulfilled_count: 5 }
+                        ]
+                      }
+                    ]).map((reqItem, idx) => {
+                      const inc = reqItem.incident;
+                      return (
+                        <div key={inc.id || idx} className="card" style={{ borderLeft: '5px solid var(--status-danger)', padding: '1.25rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem', flexWrap: 'wrap', gap: '8px' }}>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <span className="badge badge-danger">CRITICAL FLOOD INCIDENT</span>
+                              <span className="badge badge-primary">HIGH PRIORITY HUB (3.2 km)</span>
+                            </div>
+                            <span className={`badge ${reqItem.status === 'FULLY FULFILLED' ? 'badge-success' : 'badge-warning'}`}>
+                              Response Status: {reqItem.status || 'PARTIALLY FULFILLED'}
+                            </span>
+                          </div>
+
+                          <h3 style={{ fontSize: '1.25rem', color: 'var(--navy)', marginBottom: '0.3rem' }}>
+                            {inc.title}
+                          </h3>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+                            Issued by: <strong>Government Disaster Command Center</strong> • Severity: <strong style={{ color: 'var(--status-danger)' }}>{inc.severity}</strong> • Location: {inc.location}
+                          </div>
+
+                          {/* Fulfillment Breakdown Progress Bars */}
+                          <div style={{ backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '1rem', marginBottom: '1.25rem' }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--navy)', marginBottom: '0.75rem' }}>
+                              Required Support &amp; Live Student Response Ratios:
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                              {(reqItem.requirements || [
+                                { role_type: 'Medical Support', required_count: 10, fulfilled_count: 8 },
+                                { role_type: 'Evacuation Support', required_count: 20, fulfilled_count: 13 },
+                                { role_type: 'Technical Support', required_count: 5, fulfilled_count: 5 }
+                              ]).map((r) => {
+                                const reqCount = r.required_count || 10;
+                                const fulCount = r.fulfilled_count || 0;
+                                const pct = Math.min(100, Math.round((fulCount / reqCount) * 100));
+                                return (
+                                  <div key={r.role_type}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-dark)', marginBottom: '0.25rem' }}>
+                                      <span>{r.role_type}</span>
+                                      <span>{fulCount} / {reqCount} available ({pct}%)</span>
+                                    </div>
+                                    <div style={{ height: '8px', width: '100%', backgroundColor: 'var(--border-light)', borderRadius: '4px', overflow: 'hidden' }}>
+                                      <div style={{ height: '100%', width: `${pct}%`, backgroundColor: pct >= 100 ? 'var(--status-success)' : 'var(--terracotta)', transition: 'width 0.3s ease' }} />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Interactive Response Buttons */}
+                          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                            <button
+                              onClick={() => handleOpenEmergencyWorkflow(inc)}
+                              className="btn btn-secondary btn-sm"
+                            >
+                              Manage Response Teams
+                            </button>
+                            <button
+                              onClick={() => handleOpenEmergencyWorkflow(inc)}
+                              className="btn btn-primary"
+                              style={{ backgroundColor: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}
+                            >
+                              <ShieldAlert size={16} /> Assign Response Teams &amp; Notify Students
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {emergencySubTab === 'completed' && (
+                  <div className="card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <CheckCircle2 size={32} color="var(--status-success)" style={{ margin: '0 auto 0.5rem' }} />
+                    <h3 style={{ fontSize: '1.1rem', color: 'var(--navy)', marginBottom: '0.25rem' }}>Past Emergency Operations</h3>
+                    <p style={{ fontSize: '0.85rem' }}>Previous disaster deployments fully resolved in coordination with Government Authority.</p>
+                  </div>
+                )}
+
               </div>
             )}
 
@@ -527,7 +565,7 @@ export default function UniversityDashboard() {
                 </button>
               </div>
 
-              <h2 style={{ fontSize: '1.35rem', marginBottom: '0.4rem' }}>{problemDetailModal.problem.title}</h2>
+              <h2 style={{ fontSize: '1.35rem', marginBottom: '0.4rem', color: 'var(--navy)' }}>{problemDetailModal.problem.title}</h2>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
                 Posted by: <strong>{problemDetailModal.problem.organization_name || 'Client Organization'}</strong> • Location: {problemDetailModal.problem.location}
               </div>
@@ -538,8 +576,8 @@ export default function UniversityDashboard() {
 
               {problemDetailModal.analysis && (
                 <div style={{ backgroundColor: 'var(--bg-main)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', marginBottom: '1.25rem', fontSize: '0.85rem' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--primary-blue)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Sparkles size={14} /> AI Analysis & Requirement Breakdown
+                  <div style={{ fontWeight: 700, color: 'var(--terracotta)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Sparkles size={14} /> AI Analysis &amp; Requirement Breakdown
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
                     <div>Difficulty: <strong>{problemDetailModal.analysis.difficulty}</strong></div>
@@ -573,10 +611,10 @@ export default function UniversityDashboard() {
         {showAcceptConfirmModal && selectedProblem && (
           <div className="modal-overlay" onClick={() => setShowAcceptConfirmModal(false)}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px', textAlign: 'center' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'var(--primary-light)', color: 'var(--primary-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'var(--terracotta-soft)', color: 'var(--terracotta)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
                 <CheckCircle2 size={24} />
               </div>
-              <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>Confirm Challenge Acceptance</h3>
+              <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: 'var(--navy)' }}>Confirm Challenge Acceptance</h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
                 Are you sure you want to accept <strong>"{selectedProblem.title}"</strong> for {university?.name}?
               </p>
@@ -599,31 +637,85 @@ export default function UniversityDashboard() {
               <select
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                style={{ width: '100%', padding: '0.65rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', marginBottom: '1.25rem' }}
+                className="btn btn-secondary"
+                style={{ width: '100%', marginBottom: '1.25rem', textAlign: 'left' }}
               >
-                <option value="Outside current department scope">Outside current department scope</option>
-                <option value="Insufficient student expertise">Insufficient student expertise</option>
-                <option value="Insufficient laboratory/hardware resources">Insufficient laboratory/hardware resources</option>
-                <option value="Timeline not feasible for academic calendar">Timeline not feasible for academic calendar</option>
+                <option value="Outside department scope">Outside department scope</option>
+                <option value="Insufficient student bandwidth">Insufficient student bandwidth</option>
+                <option value="Timeline constraints">Timeline constraints</option>
+                <option value="Budget constraints">Budget constraints</option>
               </select>
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                 <button onClick={() => setShowRejectModal(false)} className="btn btn-secondary">Cancel</button>
-                <button onClick={handleConfirmReject} className="btn btn-primary" style={{ backgroundColor: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}>Decline Challenge</button>
+                <button onClick={handleConfirmReject} className="btn btn-primary" style={{ backgroundColor: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}>
+                  Confirm Decline
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Submit Proposal Modal */}
+        {/* Proposal Submission Modal */}
         {showProposalModal && selectedProblem && (
           <div className="modal-overlay" onClick={() => setShowProposalModal(false)}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: '0.3rem' }}>Submit Technical Proposal</h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>Challenge: <strong>{selectedProblem.title}</strong></p>
-              <form onSubmit={handleProposalSubmit}>
-                <input type="text" required placeholder="Solution Summary" value={summary} onChange={(e) => setSummary(e.target.value)} style={{ width: '100%', padding: '0.65rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', marginBottom: '1rem' }} />
-                <textarea rows={4} required placeholder="Technical Approach" value={approach} onChange={(e) => setApproach(e.target.value)} style={{ width: '100%', padding: '0.65rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', marginBottom: '1rem' }} />
-                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '560px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <h3 style={{ fontSize: '1.2rem', color: 'var(--navy)' }}>Submit Solution Proposal</h3>
+                <button onClick={() => setShowProposalModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                  <X size={20} />
+                </button>
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                Problem: <strong>{selectedProblem.title}</strong>
+              </p>
+
+              <form onSubmit={handleProposalSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-medium)', marginBottom: '0.3rem', display: 'block' }}>Executive Summary</label>
+                  <input
+                    type="text"
+                    required
+                    value={summary}
+                    onChange={(e) => setSummary(e.target.value)}
+                    placeholder="Concise overview of your solution proposal"
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-medium)', marginBottom: '0.3rem', display: 'block' }}>Technical Approach &amp; Deliverables</label>
+                  <textarea
+                    rows={4}
+                    required
+                    value={approach}
+                    onChange={(e) => setApproach(e.target.value)}
+                    placeholder="Describe engineering architecture, student team roles, and milestones..."
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-medium)', marginBottom: '0.3rem', display: 'block' }}>Estimated Cost (₹)</label>
+                    <input
+                      type="number"
+                      value={cost}
+                      onChange={(e) => setCost(e.target.value)}
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-light)' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-medium)', marginBottom: '0.3rem', display: 'block' }}>Timeline</label>
+                    <input
+                      type="text"
+                      value={timeline}
+                      onChange={(e) => setTimeline(e.target.value)}
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-light)' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
                   <button type="button" onClick={() => setShowProposalModal(false)} className="btn btn-secondary">Cancel</button>
                   <button type="submit" className="btn btn-primary">Submit Proposal</button>
                 </div>
@@ -631,6 +723,14 @@ export default function UniversityDashboard() {
             </div>
           </div>
         )}
+
+        {/* ASSIGN EMERGENCY RESPONSE MODAL */}
+        <AssignEmergencyModal
+          isOpen={showEmergencyModal}
+          onClose={() => setShowEmergencyModal(false)}
+          incident={selectedEmergencyIncident}
+          onAssignmentComplete={handleEmergencyAssigned}
+        />
 
       </main>
     </div>

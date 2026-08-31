@@ -50,22 +50,27 @@ router.post('/respond', authenticateToken, (req, res) => {
     // Check if already responded
     const existing = db.prepare('SELECT * FROM volunteer_responses WHERE requirement_id = ? AND student_id = ?').get(requirement_id, student.id);
 
+    if (existing && existing.status === 'CONFIRMED' && (status === 'CONFIRMED' || !status)) {
+      const updatedDisaster = db.prepare('SELECT * FROM disasters WHERE id = ?').get(requirement.disaster_id);
+      return res.json({
+        duplicate: true,
+        message: "You're already registered for this mission.",
+        requirement,
+        disaster: updatedDisaster
+      });
+    }
+
     if (existing) {
-      if (existing.status === status) {
-        return res.json({ message: 'Response already recorded.', requirement });
-      }
-      // Update status
-      db.prepare('UPDATE volunteer_responses SET status = ? WHERE id = ?').run(status, existing.id);
+      db.prepare('UPDATE volunteer_responses SET status = ? WHERE id = ?').run(status || 'CONFIRMED', existing.id);
     } else {
-      // Insert response
       db.prepare(`
         INSERT INTO volunteer_responses (requirement_id, student_id, role_type, status)
         VALUES (?, ?, ?, ?)
       `).run(requirement_id, student.id, requirement.role_type, status || 'CONFIRMED');
 
-      // Update fulfilled count if confirmed
       if (status !== 'DECLINED') {
         db.prepare('UPDATE disaster_requirements SET fulfilled_count = fulfilled_count + 1 WHERE id = ?').run(requirement_id);
+        db.prepare('UPDATE students SET availability_status = "DEPLOYED" WHERE id = ?').run(student.id);
       }
     }
 
@@ -75,13 +80,14 @@ router.post('/respond', authenticateToken, (req, res) => {
 
     // Audit log
     db.prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)')
-      .run(userId, 'VOLUNTEER_RESPONDED', 'VOLUNTEER_REQUIREMENT', requirement_id, `Student '${req.user.name}' responded ${status} for role '${requirement.role_type}'`);
+      .run(userId, 'VOLUNTEER_RESPONDED', 'VOLUNTEER_REQUIREMENT', requirement_id, `Student '${req.user.name}' responded ${status || 'CONFIRMED'} for role '${requirement.role_type}'`);
 
     res.json({
-      message: `Emergency response registered as ${status}!`,
+      message: status === 'DECLINED' ? "Mission declined." : "You're confirmed for this emergency mission.",
       requirement: updatedRequirement,
       disaster: updatedDisaster
     });
+
   } catch (error) {
     console.error('Volunteer response error:', error);
     res.status(500).json({ error: 'Failed to record volunteer response.' });
