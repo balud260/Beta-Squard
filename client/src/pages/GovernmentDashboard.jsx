@@ -258,7 +258,8 @@ export default function GovernmentDashboard() {
             </div>
 
             {/* Spacious 2-Column Section: Map & Incident Summary */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.8fr', gap: '1.5rem', marginBottom: '2rem' }}>
+            <div className="gov-incident-grid" style={{ marginBottom: '2rem' }}>
+
               
               {/* Map */}
               <div className="card" style={{ padding: '1.25rem' }}>

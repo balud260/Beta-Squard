@@ -11,13 +11,14 @@ export default function ProposalComparison({ proposals = [], onSelectProposal, i
   }
 
   return (
-    <div style={{ overflowX: 'auto' }}>
+    <div className="table-responsive" style={{ width: '100%', maxWidth: '100%' }}>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: `repeat(${proposals.length}, minmax(320px, 1fr))`,
+        gridTemplateColumns: `repeat(${proposals.length}, minmax(min(100%, 300px), 1fr))`,
         gap: '1.5rem',
         paddingBottom: '1rem'
       }}>
+
         {proposals.map((prop) => {
           const isSelected = prop.status === 'SELECTED';
           return (

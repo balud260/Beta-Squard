@@ -115,36 +115,38 @@ export default function ProblemOwnerDashboard() {
           <div style={{ backgroundColor: 'var(--status-success-bg)', color: 'var(--status-success)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem', fontWeight: 600, fontSize: '0.85rem' }}>
             {message}
           </div>
-        )}
-
-        {/* TOP METRIC CARDS ROW matching reference screenshot */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
-          <div className="card" style={{ padding: '1rem' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>MY PROBLEMS</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-dark)', marginTop: '0.2rem' }}>0{problems.length} <span style={{ fontSize: '0.75rem', color: 'var(--status-success)', fontWeight: 600 }}>Active</span></div>
+        )}        {/* TOP METRIC CARDS ROW */}
+        <div className="grid grid-cols-4" style={{ marginBottom: '1.5rem' }}>
+          <div className="stat-card">
+            <div className="lbl">MY PROBLEMS</div>
+            <div className="num">0{problems.length}</div>
+            <div className="ctx">Active Challenges</div>
           </div>
 
-          <div className="card" style={{ padding: '1rem' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>UNIVERSITY RESPONSES</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-purple)', marginTop: '0.2rem' }}>0{acceptedUniversities.length} <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Accepted</span></div>
+          <div className="stat-card">
+            <div className="lbl">UNIVERSITY RESPONSES</div>
+            <div className="num" style={{ color: 'var(--status-success)' }}>0{acceptedUniversities.length}</div>
+            <div className="ctx">Accepted Institutions</div>
           </div>
 
-          <div className="card" style={{ padding: '1rem' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>SOLUTIONS RECEIVED</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-blue)', marginTop: '0.2rem' }}>0{proposals.length} <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Proposals</span></div>
+          <div className="stat-card">
+            <div className="lbl">SOLUTIONS RECEIVED</div>
+            <div className="num" style={{ color: 'var(--terracotta)' }}>0{proposals.length}</div>
+            <div className="ctx">Proposals Submitted</div>
           </div>
 
-          <div className="card" style={{ padding: '1rem' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>ACTIVE PROJECTS</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--status-success)', marginTop: '0.2rem' }}>01 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Development</span></div>
+          <div className="stat-card">
+            <div className="lbl">ACTIVE PROJECTS</div>
+            <div className="num" style={{ color: 'var(--navy)' }}>01</div>
+            <div className="ctx">In Development</div>
           </div>
         </div>
 
         {/* Notifications Alert Banner if new responses exist */}
         {notifications.length > 0 && (
-          <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem' }}>
-            <div style={{ fontWeight: 700, color: 'var(--primary-blue)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.15rem' }}>
-              <Bell size={14} /> Recent University Responses & Notifications
+          <div style={{ backgroundColor: '#FEF3EA', border: '1px solid #F6D9B8', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem' }}>
+            <div style={{ fontWeight: 700, color: 'var(--terracotta)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.15rem' }}>
+              <Bell size={14} /> Recent University Responses &amp; Notifications
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-dark)' }}>
               {notifications[0].message} ({notifications[0].created_at?.slice(0, 10)})
@@ -153,32 +155,29 @@ export default function ProblemOwnerDashboard() {
         )}
 
         {/* Navigation Tabs */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.4rem' }}>
+        <div className="tabs-scrollable">
           <button
             onClick={() => setActiveTab('problems')}
-            className={`btn ${activeTab === 'problems' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+            className={`btn btn-sm ${activeTab === 'problems' ? 'btn-primary' : 'btn-secondary'}`}
           >
             My Problems ({problems.length})
           </button>
           <button
             onClick={() => setActiveTab('accepted-universities')}
-            className={`btn ${activeTab === 'accepted-universities' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem', gap: '0.3rem' }}
+            className={`btn btn-sm ${activeTab === 'accepted-universities' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ gap: '0.3rem' }}
           >
             <GraduationCap size={14} /> University Responses ({acceptedUniversities.length})
           </button>
           <button
             onClick={() => setActiveTab('proposals')}
-            className={`btn ${activeTab === 'proposals' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+            className={`btn btn-sm ${activeTab === 'proposals' ? 'btn-primary' : 'btn-secondary'}`}
           >
             Solutions Received ({proposals.length})
           </button>
           <button
             onClick={() => setActiveTab('impact')}
-            className={`btn ${activeTab === 'impact' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+            className={`btn btn-sm ${activeTab === 'impact' ? 'btn-primary' : 'btn-secondary'}`}
           >
             Impact Metrics
           </button>
@@ -186,7 +185,8 @@ export default function ProblemOwnerDashboard() {
 
         {/* TAB 1: My Problems */}
         {activeTab === 'problems' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '0.85fr 1.15fr', gap: '1.25rem', marginBottom: '1.5rem' }}>
+          <div className="grid grid-cols-2" style={{ marginBottom: '1.5rem' }}>
+
             
             {/* My Problems List matching reference cards */}
             <div className="card" style={{ padding: '1.25rem' }}>

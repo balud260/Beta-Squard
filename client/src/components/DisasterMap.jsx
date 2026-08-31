@@ -45,8 +45,9 @@ export default function DisasterMap({ disaster, relocationSites = [], hospitals 
   const center = [disaster?.lat || 28.6139, disaster?.lng || 77.2090];
 
   return (
-    <div style={{ height: '440px', width: '100%', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)' }}>
-      <MapContainer center={center} zoom={12} style={{ height: '100%', width: '100%' }}>
+    <div style={{ height: '440px', width: '100%', maxWidth: '100%', minWidth: 0, borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)' }}>
+      <MapContainer center={center} zoom={12} style={{ height: '100%', width: '100%', minWidth: 0 }}>
+
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

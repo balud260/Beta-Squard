@@ -188,7 +188,8 @@ export default function UniversityDashboard() {
 
         {/* MAIN THREE-COLUMN REFERENCE LAYOUT FOR 'AVAILABLE' DISCOVERY */}
         {activeTab === 'available' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '270px 1fr 270px', gap: '1.25rem', alignItems: 'start' }}>
+          <div className="univ-portal-grid">
+
             
             {/* LEFT COLUMN: Hero Metric Card + Discovery Filters */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -347,7 +348,8 @@ export default function UniversityDashboard() {
             </div>
 
             {/* RIGHT COLUMN: Team Activity & Success Insights matching Reference */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div className="univ-portal-right-rail" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
               
               {/* Team Activity Panel */}
               <div className="card" style={{ padding: '1.25rem' }}>

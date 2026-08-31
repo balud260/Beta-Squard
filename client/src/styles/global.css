@@ -45,9 +45,18 @@
   --font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* Reset */
-* {
+/* Global Reset & Layout Safety */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
   margin: 0;
   padding: 0;
 }
@@ -60,7 +69,7 @@ body {
   line-height: 1.5;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  overflow-x: clip; /* Safety net AFTER fixing actual layout elements */
 }
 
 /* Typography Hierarchy */
@@ -70,6 +79,7 @@ h1, .page-title {
   color: var(--navy);
   letter-spacing: -0.02em;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 h2, .section-title {
@@ -77,6 +87,7 @@ h2, .section-title {
   font-weight: 600;
   color: var(--navy);
   line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 h3, .card-title {
@@ -84,17 +95,20 @@ h3, .card-title {
   font-weight: 600;
   color: var(--text-dark);
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 p, .body-text {
   font-size: 14px;
   color: var(--text-medium);
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .text-muted, .metadata-text {
   font-size: 13px;
   color: var(--text-muted);
+  overflow-wrap: anywhere;
 }
 
 a {
@@ -107,25 +121,38 @@ a:hover {
   color: var(--terracotta-hover);
 }
 
-/* Layout Containers */
+/* Layout Containers & Spacing */
 .container {
   width: 100%;
-  max-width: 1400px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding-left: 24px;
+  padding-right: 24px;
+  box-sizing: border-box;
 }
 
-/* Page Section Spacing */
 .page-section {
   margin-bottom: 32px;
 }
 
-/* Section Header */
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Critical Flex/Grid Child Reset to Allow Shrinking */
+.grid > *,
+.card,
+.panel,
+.main-content,
+.dashboard-column,
+.hero-card-dark {
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Enterprise Metric Cards */
@@ -135,6 +162,7 @@ a:hover {
   border-radius: var(--radius-md);
   padding: 20px 24px;
   box-shadow: var(--shadow-sm);
+  min-width: 0;
 }
 
 .stat-card .lbl {
@@ -144,6 +172,7 @@ a:hover {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: 6px;
+  overflow-wrap: anywhere;
 }
 
 .stat-card .num {
@@ -158,6 +187,7 @@ a:hover {
   color: var(--text-muted);
   margin-top: 4px;
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 /* Buttons */
@@ -175,6 +205,7 @@ a:hover {
   background: var(--bg-card);
   color: var(--navy);
   transition: all 0.15s ease;
+  max-width: 100%;
 }
 
 .btn:hover {
@@ -218,6 +249,7 @@ a:hover {
   border-radius: var(--radius-md);
   padding: 20px;
   box-shadow: var(--shadow-sm);
+  width: 100%;
 }
 
 .panel-head {
@@ -227,6 +259,8 @@ a:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 /* Metadata Rows & Tables */
@@ -259,6 +293,8 @@ a:hover {
   font-size: 12px;
   font-weight: 600;
   line-height: 1;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .badge-primary { background: var(--terracotta-soft); color: var(--terracotta); }
@@ -266,6 +302,23 @@ a:hover {
 .badge-warning { background: var(--status-warning-bg); color: var(--status-warning); }
 .badge-danger { background: var(--status-danger-bg); color: var(--status-danger); }
 .badge-navy { background: #E2EBE6; color: var(--navy); }
+
+/* Category Pills */
+.category-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.category-pill-edu { background: var(--terracotta-soft); color: var(--terracotta); }
+.category-pill-health { background: #FEF3EA; color: #8A4B0B; }
+.category-pill-agri { background: #E8F7EC; color: #2F9E63; }
+.category-pill-disaster { background: #FDE8E8; color: #C1272D; }
 
 /* Alert Banner */
 .alert-banner {
@@ -280,9 +333,10 @@ a:hover {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
-/* Grid System */
+/* Responsive Grid System */
 .grid {
   display: grid;
   gap: 20px;
@@ -292,6 +346,32 @@ a:hover {
 .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* Responsive Tab Container */
+.tabs-scrollable {
+  display: flex;
+  gap: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
+  margin-bottom: 20px;
+}
+.tabs-scrollable::-webkit-scrollbar {
+  height: 4px;
+}
+.tabs-scrollable::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 4px;
+}
+
+/* Wide Table Responsive Container */
+.table-responsive {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 /* Flow Diagram Banner */
 .flow {
@@ -318,6 +398,24 @@ a:hover {
   font-size: 16px;
 }
 
+/* Hero Dark Card */
+.hero-card-dark {
+  background-color: var(--navy);
+  color: #ffffff;
+  border-radius: var(--radius-md);
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.hero-card-dark h2 {
+  color: #ffffff;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
 /* Modals */
 .modal-overlay {
   position: fixed;
@@ -341,18 +439,82 @@ a:hover {
   max-height: 88vh;
   overflow-y: auto;
   border: 1px solid var(--border-light);
+  min-width: 0;
 }
 
-/* Responsiveness */
-@media (max-width: 1024px) {
-  .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .container { padding: 0 1rem; }
+/* University Portal 3-Column Grid Layout */
+.univ-portal-grid {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 280px;
+  gap: 20px;
+  align-items: start;
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .univ-portal-grid {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+  .univ-portal-right-rail {
+    grid-column: span 2;
+  }
 }
 
 @media (max-width: 768px) {
-  .grid-cols-4, .grid-cols-3, .grid-cols-2 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
-  h1, .page-title { font-size: 24px; }
+  .univ-portal-grid {
+    grid-template-columns: 1fr;
+  }
+  .univ-portal-right-rail {
+    grid-column: span 1;
+  }
+}
+
+/* Government Incident Map & Overview Grid Layout */
+.gov-incident-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+  gap: 20px;
+  align-items: start;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .gov-incident-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 820px) {
+  .desktop-nav {
+    display: none !important;
+  }
+}
+
+/* Responsive Media Queries */
+@media (max-width: 1200px) {
+  .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .grid-cols-4, .grid-cols-3, .grid-cols-2 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+  h1, .page-title { font-size: 22px; }
   h2, .section-title { font-size: 18px; }
   .alert-banner { flex-direction: column; align-items: flex-start; }
+  .modal-overlay { padding: 12px; }
+  .modal-content { padding: 16px; }
+  .btn { width: 100%; }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
 }

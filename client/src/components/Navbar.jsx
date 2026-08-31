@@ -74,94 +74,89 @@ export default function Navbar({ onOpenSimulatedApp }) {
         </div>
 
         {/* Center Nav Links */}
-        <nav style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+        <nav className="desktop-nav" style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', minWidth: 0 }}>
           {user && (user.role === 'UNIVERSITY_ADMIN' || user.role === 'FACULTY') ? (
             <>
-              <Link to="/dashboard/university" style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--terracotta)' }}>
+              <Link to="/dashboard/university" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--terracotta)', whiteSpace: 'nowrap' }}>
                 Discovery
               </Link>
-              <a href="#accepted" style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+              <a href="#accepted" style={{ fontWeight: 500, fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                 My Projects
               </a>
-              <a href="#teams" style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+              <a href="#teams" style={{ fontWeight: 500, fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                 Team Management
               </a>
             </>
           ) : user && user.role === 'GOVERNMENT' ? (
             <>
-              <Link to="/dashboard/government" style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--terracotta)' }}>
+              <Link to="/dashboard/government" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--terracotta)', whiteSpace: 'nowrap' }}>
                 Disaster Command Center
               </Link>
-              <a href="#responsible" style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+              <a href="#responsible" style={{ fontWeight: 500, fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                 Requirements
               </a>
-              <a href="#resources" style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+              <a href="#resources" style={{ fontWeight: 500, fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                 Hospitals &amp; Universities
-              </a>
-              <a href="#solutions" style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                Solutions &amp; Impact
               </a>
             </>
           ) : user && user.role === 'PROBLEM_OWNER' ? (
             <>
-              <Link to="/dashboard/owner" style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--terracotta)' }}>
+              <Link to="/dashboard/owner" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--terracotta)', whiteSpace: 'nowrap' }}>
                 My Challenges
               </Link>
-              <a href="#responses" style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+              <a href="#responses" style={{ fontWeight: 500, fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                 University Responses
-              </a>
-              <a href="#proposals" style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                Proposals
               </a>
             </>
           ) : (
             <>
-              <Link to="/" style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-dark)' }}>Overview</Link>
-              <a href="#how-it-works" style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-muted)' }}>How It Works</a>
-              <a href="#disaster-response" style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-muted)' }}>Disaster Command</a>
+              <Link to="/" style={{ fontWeight: 500, fontSize: '0.85rem', color: 'var(--text-dark)', whiteSpace: 'nowrap' }}>Overview</Link>
+              <a href="#how-it-works" style={{ fontWeight: 500, fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>How It Works</a>
             </>
           )}
         </nav>
 
         {/* Right User Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flexShrink: 0 }}>
           {onOpenSimulatedApp && (
             <button
               onClick={onOpenSimulatedApp}
               className="btn btn-secondary btn-sm"
-              style={{ gap: '0.3rem', fontSize: '0.8rem' }}
+              style={{ gap: '0.3rem', fontSize: '0.75rem', padding: '0.35rem 0.6rem' }}
             >
-              <Smartphone size={14} /> Student App Demo
+              <Smartphone size={13} /> Student App
             </button>
           )}
 
           {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative', minWidth: 0 }}>
               <div style={{ position: 'relative' }}>
                 <button
                   onClick={() => setShowRoleDropdown(!showRoleDropdown)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.5rem',
+                    gap: '0.4rem',
                     backgroundColor: 'transparent',
                     border: 'none',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    minWidth: 0
                   }}
                 >
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-dark)', lineHeight: 1.1 }}>
+                  <div style={{ textAlign: 'right', minWidth: 0, maxWidth: '130px' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-dark)', lineHeight: 1.1, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                       {user.name}
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                       {user.role.replace('_', ' ')}
                     </div>
                   </div>
-                  <div style={{ width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'var(--terracotta-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.8rem', color: 'var(--terracotta)' }}>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'var(--terracotta-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.75rem', color: 'var(--terracotta)', flexShrink: 0 }}>
                     {user.name[0]}
                   </div>
-                  <ChevronDown size={14} color="var(--text-muted)" />
+                  <ChevronDown size={14} color="var(--text-muted)" flexShrink={0} />
                 </button>
+
 
                 {showRoleDropdown && (
                   <div style={{
