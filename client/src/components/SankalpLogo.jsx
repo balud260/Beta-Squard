@@ -1,56 +1,43 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-export default function SankalpLogo({ variant = 'compact', height = 36, subtitle = '', to = '/', style = {} }) {
+export default function SankalpLogo({ variant = 'compact', height = 38, subtitle = '', to = '/', style = {} }) {
+  // Use optimal height scaling for different variants
+  const imgHeight = variant === 'full' ? Math.max(height, 56) : height;
+
   const logoContent = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', ...style }}>
-      {/* Official SANKALP AI Mark / Logo Image */}
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', ...style }}>
+      {/* Official SANKALP AI Logo Image */}
       <img
         src="/sankalp-logo.png"
         alt="SANKALP AI Logo"
         style={{
-          height: `${height}px`,
+          height: `${imgHeight}px`,
           width: 'auto',
           objectFit: 'contain',
           display: 'block'
         }}
       />
 
-      {variant !== 'icon' && (
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', lineHeight: 1.1 }}>
-            <span style={{
-              fontFamily: 'Outfit, var(--font-primary)',
-              fontWeight: 800,
-              fontSize: height > 32 ? '1.15rem' : '1.05rem',
-              color: 'var(--navy)',
-              letterSpacing: '0.02em'
-            }}>
-              SANKALP
-            </span>
-            <span style={{
-              fontFamily: 'Outfit, var(--font-primary)',
-              fontWeight: 800,
-              fontSize: height > 32 ? '1.15rem' : '1.05rem',
-              color: 'var(--terracotta)',
-              letterSpacing: '0.02em'
-            }}>
-              AI
-            </span>
-          </div>
-
-          {subtitle && (
-            <span style={{
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              color: 'var(--text-muted)',
-              marginTop: '1px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em'
-            }}>
-              | {subtitle}
-            </span>
-          )}
+      {/* Optional Portal Subtitle Badge */}
+      {subtitle && subtitle !== 'PLATFORM' && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          borderLeft: '2px solid var(--border-light)',
+          paddingLeft: '10px',
+          height: `${Math.min(imgHeight, 28)}px`
+        }}>
+          <span style={{
+            fontSize: '0.78rem',
+            fontWeight: 700,
+            color: 'var(--navy)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            whiteSpace: 'nowrap'
+          }}>
+            {subtitle}
+          </span>
         </div>
       )}
     </div>
@@ -58,7 +45,7 @@ export default function SankalpLogo({ variant = 'compact', height = 36, subtitle
 
   if (to) {
     return (
-      <Link to={to} style={{ textDecoration: 'none', display: 'inline-flex' }}>
+      <Link to={to} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
         {logoContent}
       </Link>
     );
