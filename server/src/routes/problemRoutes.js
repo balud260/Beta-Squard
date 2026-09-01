@@ -167,9 +167,13 @@ router.get('/public', authenticateToken, (req, res) => {
       LEFT JOIN users u_owner ON p.owner_id = u_owner.id
       LEFT JOIN organizations o ON u_owner.organization_id = o.id
       LEFT JOIN problem_analysis pa ON p.id = pa.problem_id
-      WHERE p.status IN ('PUBLISHED', 'PROPOSALS_RECEIVED', 'SOLUTION_SELECTED', 'DEVELOPMENT', 'DEPLOYED')
+      WHERE p.status IN ('PUBLISHED', 'ACCEPTED', 'PROPOSALS_RECEIVED', 'SOLUTION_SELECTED', 'DEVELOPMENT', 'DEPLOYED')
+        AND (
+          (SELECT count(*) FROM university_problem_acceptances upa 
+           WHERE upa.problem_id = p.id AND upa.university_id = ? AND upa.status IN ('ACCEPTED', 'PROPOSAL_SUBMITTED', 'PROJECT_CREATED', 'REJECTED')) = 0
+        )
       ORDER BY p.created_at DESC
-    `).all(universityId);
+    `).all(universityId, universityId);
 
     const formatted = problems.map(p => {
       let skills = [];
@@ -361,8 +365,8 @@ router.post('/', authenticateToken, authorizeRoles('PROBLEM_OWNER', 'GOVERNMENT'
  */
 router.post('/:id/accept', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN', 'FACULTY'), (req, res) => {
   try {
-    const problemId = req.params.id;
-    const univId = req.user.university_id || 1;
+    const problemId = Number(req.params.id);
+    const univId = Number(req.user.university_id || 1);
 
     const problem = db.prepare('SELECT * FROM problems WHERE id = ?').get(problemId);
     if (!problem) {
@@ -372,7 +376,7 @@ router.post('/:id/accept', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN',
     const existing = db.prepare('SELECT * FROM university_problem_acceptances WHERE university_id = ? AND problem_id = ?').get(univId, problemId);
 
     if (existing && existing.status === 'ACCEPTED') {
-      return res.status(400).json({ error: 'You have already accepted this challenge.' });
+      return res.json({ alreadyAccepted: true, message: `Challenge '${problem.title}' is already accepted.` });
     }
 
     if (existing) {
@@ -384,35 +388,75 @@ router.post('/:id/accept', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN',
       `).run(univId, problemId);
     }
 
+    // Update problem status to ACCEPTED if currently PUBLISHED or SUBMITTED
+    if (problem.status === 'PUBLISHED' || problem.status === 'SUBMITTED' || problem.status === 'ANALYZED') {
+      db.prepare('UPDATE problems SET status = "ACCEPTED" WHERE id = ?').run(problemId);
+    }
+
     const university = db.prepare('SELECT name FROM universities WHERE id = ?').get(univId);
 
-    // 1. Generate Notification for Problem Owner
-    db.prepare(`
-      INSERT INTO notifications (user_id, title, message, type, metadata_json)
-      VALUES (?, '🎓 University Accepted Your Challenge', ?, 'ACCEPTANCE', ?)
-    `).run(
-      problem.owner_id,
-      `${university?.name || 'A university'} has accepted your challenge: '${problem.title}'.`,
-      JSON.stringify({ problem_id: problemId, university_id: univId, status: 'ACCEPTED' })
-    );
+    // Prevent duplicate notifications for Problem Owner
+    const existingOwnerNotif = db.prepare(`
+      SELECT id FROM notifications 
+      WHERE user_id = ? AND type = 'ACCEPTANCE' AND metadata_json LIKE ?
+    `).get(problem.owner_id, `%"problem_id":${problemId}%`);
 
-    // 2. Generate Notification for Government Authority
-    const govUsers = db.prepare('SELECT id FROM users WHERE role = "GOVERNMENT"').all();
-    govUsers.forEach(g => {
+    if (!existingOwnerNotif) {
       db.prepare(`
         INSERT INTO notifications (user_id, title, message, type, metadata_json)
-        VALUES (?, '🎓 University Accepted Government Problem', ?, 'ACCEPTANCE', ?)
+        VALUES (?, '🎓 University Accepted Your Challenge', ?, 'ACCEPTANCE', ?)
       `).run(
-        g.id,
-        `${university?.name || 'A university'} accepted Problem #${problemId} ('${problem.title}').`,
+        problem.owner_id,
+        `${university?.name || 'A university'} has accepted your challenge: '${problem.title}'.`,
         JSON.stringify({ problem_id: problemId, university_id: univId, status: 'ACCEPTED' })
       );
+    }
+
+    // Generate Notification for Government Authority if not duplicated
+    const govUsers = db.prepare('SELECT id FROM users WHERE role = "GOVERNMENT"').all();
+    govUsers.forEach(g => {
+      const existingGovNotif = db.prepare(`
+        SELECT id FROM notifications 
+        WHERE user_id = ? AND type = 'ACCEPTANCE' AND metadata_json LIKE ?
+      `).get(g.id, `%"problem_id":${problemId}%`);
+
+      if (!existingGovNotif) {
+        db.prepare(`
+          INSERT INTO notifications (user_id, title, message, type, metadata_json)
+          VALUES (?, '🎓 University Accepted Government Problem', ?, 'ACCEPTANCE', ?)
+        `).run(
+          g.id,
+          `${university?.name || 'A university'} accepted Problem #${problemId} ('${problem.title}').`,
+          JSON.stringify({ problem_id: problemId, university_id: univId, status: 'ACCEPTED' })
+        );
+      }
     });
 
-    res.json({ message: `Challenge '${problem.title}' accepted! Workspace updated.` });
+    res.json({ message: `Challenge '${problem.title}' accepted! Workspace updated.`, problem_id: problemId });
   } catch (error) {
     console.error('Accept problem error:', error);
     res.status(500).json({ error: 'Failed to accept challenge.' });
+  }
+});
+
+/**
+ * GET /api/problems/:id/accepted-universities - Get list of universities that accepted a problem
+ */
+router.get('/:id/accepted-universities', authenticateToken, (req, res) => {
+  try {
+    const problemId = req.params.id;
+    const accepted = db.prepare(`
+      SELECT upa.*, u.name as university_name, u.code, u.location, u.research_focus, u.equipment_summary, u.total_students
+      FROM university_problem_acceptances upa
+      JOIN universities u ON upa.university_id = u.id
+      WHERE upa.problem_id = ? AND upa.status IN ('ACCEPTED', 'PROPOSAL_SUBMITTED', 'PROJECT_CREATED')
+      ORDER BY upa.accepted_at DESC
+    `).all(problemId);
+
+    res.json({ accepted });
+  } catch (error) {
+    console.error('Fetch accepted universities error:', error);
+    res.status(500).json({ error: 'Failed to fetch accepted universities.' });
   }
 });
 

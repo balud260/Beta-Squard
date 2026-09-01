@@ -249,6 +249,23 @@ export default function ProblemOwnerDashboard() {
                 {/* SANKALP AI Problem Lifecycle Tracker */}
                 <ProblemLifecycleTracker currentStatus={selectedProblem.status} style={{ marginBottom: '1rem' }} />
 
+                {/* Accepted Universities Summary Box */}
+                {acceptedUniversities.length > 0 && (
+                  <div style={{ backgroundColor: 'var(--status-success-bg)', border: '1px solid #B8E6CB', padding: '0.85rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--status-success)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem' }}>
+                      <CheckCircle2 size={16} /> Accepted Institutions ({acceptedUniversities.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      {acceptedUniversities.map(u => (
+                        <div key={u.id} style={{ fontSize: '0.8rem', color: 'var(--text-dark)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>🎓 {u.university_name} ({u.location})</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--status-success)' }}>Accepted on {u.accepted_at?.slice(0, 10)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
 
                 {/* SANKALP AI Result Panel */}
                 {(loadingAi || aiAnalysis) && (
