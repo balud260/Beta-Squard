@@ -67,7 +67,8 @@ INSERT INTO users (id, name, email, password_hash, role, organization_id, univer
 (3, 'Prof. Arvind Kulkarni (University)', 'university@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'UNIVERSITY_ADMIN', NULL, 1, NULL, '+91 98765 00003', 'ACTIVE'),
 (4, 'Aarav Mehta (Integrated Student)', 'student@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'STUDENT', NULL, 1, NULL, '+91 98765 00004', 'ACTIVE'),
 (5, 'Dr. Ananya Sen (NGO Problem Owner)', 'owner2@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'PROBLEM_OWNER', 5, NULL, NULL, '+91 98765 00005', 'ACTIVE'),
-(6, 'Priya Nair (Faculty)', 'faculty@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'FACULTY', NULL, 1, NULL, '+91 98765 00006', 'ACTIVE');
+(6, 'Priya Nair (Faculty)', 'faculty@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'FACULTY', NULL, 1, NULL, '+91 98765 00006', 'ACTIVE'),
+(7, 'Dr. Vikram Seth (Hospital Admin)', 'hospital@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'HOSPITAL_ADMIN', NULL, NULL, 1, '+91 98765 00007', 'ACTIVE');
 
 -- 6. Insert Student Record
 INSERT INTO students (id, user_id, university_id, department_id, roll_number, skills_json, nss_member, ncc_member, availability_status) VALUES

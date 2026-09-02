@@ -102,6 +102,17 @@ async function initDb() {
       console.warn('Migration update warning:', e.message);
     }
 
+    // Ensure Hospital demo user exists
+    try {
+      const hospitalUser = queryGet("SELECT * FROM users WHERE email = 'hospital@solvelink.demo'");
+      if (!hospitalUser) {
+        rawDb.exec(`
+          INSERT INTO users (name, email, password_hash, role, hospital_id, status)
+          VALUES ('Dr. Vikram Seth (Hospital Admin)', 'hospital@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'HOSPITAL_ADMIN', 1, 'ACTIVE');
+        `);
+      }
+    } catch (e) {}
+
     // Seed if empty
     const userCheck = queryGet('SELECT count(*) as count FROM users');
     if (!userCheck || userCheck.count === 0) {

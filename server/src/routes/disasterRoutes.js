@@ -82,6 +82,18 @@ router.post('/', authenticateToken, authorizeRoles('GOVERNMENT'), (req, res) => 
 });
 
 /**
+ * GET /api/disasters/relocation-recommendations - List top scored relocation sites
+ */
+router.get('/relocation-recommendations', authenticateToken, (req, res) => {
+  try {
+    const sites = db.prepare('SELECT rs.*, d.title as disaster_title FROM relocation_sites rs JOIN disasters d ON rs.disaster_id = d.id ORDER BY rs.score DESC').all();
+    res.json({ sites });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch relocation recommendations.' });
+  }
+});
+
+/**
  * GET /api/disasters/:id - Full Disaster Command Center Details with University Distances
  */
 router.get('/:id', authenticateToken, (req, res) => {
@@ -217,6 +229,18 @@ router.post('/:id/analyze', authenticateToken, authorizeRoles('GOVERNMENT'), asy
 });
 
 /**
+ * GET /api/disasters/relocation-recommendations - List top scored relocation sites
+ */
+router.get('/relocation-recommendations', authenticateToken, (req, res) => {
+  try {
+    const sites = db.prepare('SELECT rs.*, d.title as disaster_title FROM relocation_sites rs JOIN disasters d ON rs.disaster_id = d.id ORDER BY rs.score DESC').all();
+    res.json({ sites });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch relocation recommendations.' });
+  }
+});
+
+/**
  * GET /api/disasters/:id/relocation-eval - AI Relocation Evaluation
  */
 router.get('/:id/relocation-eval', authenticateToken, async (req, res) => {
@@ -266,6 +290,79 @@ router.post('/:id/relocation-approve', authenticateToken, authorizeRoles('GOVERN
   } catch (error) {
     console.error('Approve relocation site error:', error);
     res.status(500).json({ error: 'Failed to approve relocation site.' });
+  }
+});
+
+/**
+ * POST /api/disasters/:id/relocate - Alias for relocation approval (Government Only)
+ */
+router.post('/:id/relocate', authenticateToken, authorizeRoles('GOVERNMENT'), (req, res) => {
+  try {
+    const disasterId = req.params.id;
+    const { site_id, notes } = req.body;
+
+    const site = db.prepare('SELECT * FROM relocation_sites WHERE id = ? AND disaster_id = ?').get(site_id || 1, disasterId);
+
+    if (!site) {
+      return res.status(404).json({ error: 'Relocation site not found.' });
+    }
+
+    db.prepare('UPDATE relocation_sites SET status = "APPROVED" WHERE id = ?').run(site.id);
+
+    res.json({
+      message: `Relocation Site '${site.name}' successfully APPROVED by Government.`,
+      status: 'APPROVED',
+      is_government_decision: true
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to approve relocation site.' });
+  }
+});
+
+/**
+ * POST /api/disasters/:id/requirements - Government broadcasts volunteer requirements
+ */
+router.post('/:id/requirements', authenticateToken, authorizeRoles('GOVERNMENT'), (req, res) => {
+  try {
+    const disasterId = req.params.id;
+    const { role_type, required_count, urgency } = req.body;
+
+    if (!role_type || !required_count) {
+      return res.status(400).json({ error: 'Role type and required count are required.' });
+    }
+
+    const disaster = db.prepare('SELECT * FROM disasters WHERE id = ?').get(disasterId);
+    if (!disaster) {
+      return res.status(404).json({ error: 'Disaster incident not found.' });
+    }
+
+    const result = db.prepare(`
+      INSERT INTO disaster_requirements (disaster_id, role_type, required_count, urgency)
+      VALUES (?, ?, ?, ?)
+    `).run(disasterId, role_type, required_count, urgency || 'HIGH');
+
+    const requirementId = result.lastInsertRowid;
+
+    // Generate notifications for students
+    const students = db.prepare('SELECT user_id FROM students').all();
+    students.forEach(s => {
+      db.prepare(`
+        INSERT INTO notifications (user_id, title, message, type, metadata_json)
+        VALUES (?, '🚨 CRITICAL DISASTER ALERT', ?, 'EMERGENCY', ?)
+      `).run(
+        s.user_id,
+        `Emergency Alert: ${disaster.title} requires ${role_type} in ${disaster.location}.`,
+        JSON.stringify({ disaster_id: Number(disasterId), requirement_id: Number(requirementId) })
+      );
+    });
+
+    res.status(201).json({
+      message: `Emergency requirement for '${role_type}' broadcasted successfully.`,
+      requirementId
+    });
+  } catch (error) {
+    console.error('Broadcast requirement error:', error);
+    res.status(500).json({ error: 'Failed to broadcast emergency requirement.' });
   }
 });
 

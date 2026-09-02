@@ -388,9 +388,9 @@ router.post('/:id/accept', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN',
       `).run(univId, problemId);
     }
 
-    // Update problem status to ACCEPTED if currently PUBLISHED or SUBMITTED
-    if (problem.status === 'PUBLISHED' || problem.status === 'SUBMITTED' || problem.status === 'ANALYZED') {
-      db.prepare('UPDATE problems SET status = "ACCEPTED" WHERE id = ?').run(problemId);
+    // Update problem status to PUBLISHED if currently DRAFT or SUBMITTED
+    if (problem.status === 'DRAFT' || problem.status === 'SUBMITTED') {
+      db.prepare('UPDATE problems SET status = "PUBLISHED" WHERE id = ?').run(problemId);
     }
 
     const university = db.prepare('SELECT name FROM universities WHERE id = ?').get(univId);

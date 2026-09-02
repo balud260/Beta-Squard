@@ -26,7 +26,7 @@ router.get('/', authenticateToken, (req, res) => {
 /**
  * POST /api/notifications/:id/read - Mark notification as read
  */
-router.post('/:id/read', authenticateToken, (req, res) => {
+const markReadHandler = (req, res) => {
   try {
     const notifId = req.params.id;
     db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ?').run(notifId);
@@ -34,6 +34,10 @@ router.post('/:id/read', authenticateToken, (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Failed to update notification.' });
   }
-});
+};
+
+router.post('/:id/read', authenticateToken, markReadHandler);
+router.patch('/:id/read', authenticateToken, markReadHandler);
+router.put('/:id/read', authenticateToken, markReadHandler);
 
 module.exports = router;
