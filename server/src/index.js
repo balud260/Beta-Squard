@@ -78,10 +78,12 @@ app.use((err, req, res, next) => {
 
 async function startServer() {
   await db.initPromise;
+  const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== '');
   app.listen(PORT, () => {
     console.log(`=======================================================`);
-    console.log(`  SolveLink AI Backend API running on port ${PORT}`);
+    console.log(`  SANKALP AI Backend API running on port ${PORT}`);
     console.log(`  Database: Pure JS SQLite (solvelink.db) Initialized`);
+    console.log(`  Gemini AI Engine: ${hasGeminiKey ? 'AVAILABLE (gemini-3.6-flash)' : 'MISSING (Fallback protection active)'}`);
     console.log(`=======================================================`);
   });
 }
