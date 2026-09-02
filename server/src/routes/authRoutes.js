@@ -16,7 +16,8 @@ router.post('/login', (req, res) => {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE email = ? AND status = "ACTIVE"').get(email);
+    const cleanEmail = email.trim().toLowerCase();
+    const user = db.prepare("SELECT * FROM users WHERE LOWER(email) = ? AND status = 'ACTIVE'").get(cleanEmail);
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password.' });

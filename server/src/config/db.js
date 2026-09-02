@@ -102,7 +102,17 @@ async function initDb() {
       console.warn('Migration update warning:', e.message);
     }
 
-    // Ensure Hospital demo user exists
+    // Seed full demo data if core demo accounts are missing or table is empty
+    const coreGovUser = queryGet("SELECT id FROM users WHERE email = 'government@solvelink.demo'");
+    if (!coreGovUser) {
+      console.log('Database missing core demo users. Running seed SQL...');
+      const seedSql = fs.readFileSync(seedPath, 'utf8');
+      rawDb.exec(seedSql);
+      saveToDisk();
+      console.log('Database successfully seeded with realistic demo data.');
+    }
+
+    // Ensure Hospital demo user exists on existing database
     try {
       const hospitalUser = queryGet("SELECT * FROM users WHERE email = 'hospital@solvelink.demo'");
       if (!hospitalUser) {
@@ -110,20 +120,12 @@ async function initDb() {
           INSERT INTO users (name, email, password_hash, role, hospital_id, status)
           VALUES ('Dr. Vikram Seth (Hospital Admin)', 'hospital@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'HOSPITAL_ADMIN', 1, 'ACTIVE');
         `);
+        saveToDisk();
       }
     } catch (e) {}
 
-    // Seed if empty
-    const userCheck = queryGet('SELECT count(*) as count FROM users');
-    if (!userCheck || userCheck.count === 0) {
-      console.log('Database empty. Running seed SQL...');
-      const seedSql = fs.readFileSync(seedPath, 'utf8');
-      rawDb.exec(seedSql);
-      saveToDisk();
-      console.log('Database successfully seeded with realistic demo data.');
-    } else {
-      console.log(`SQLite Database ready. Existing users: ${userCheck.count}`);
-    }
+    const userCountRes = queryGet('SELECT count(*) as count FROM users');
+    console.log(`SQLite Database ready. Total registered users: ${userCountRes ? userCountRes.count : 0}`);
     isReady = true;
   } catch (err) {
     console.error('Failed to initialize SQLite Database:', err);
