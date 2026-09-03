@@ -127,13 +127,33 @@ router.post('/assistant', authenticateToken, async (req, res) => {
 
     const hospitals = db.prepare('SELECT * FROM hospitals').all();
     const universities = db.prepare('SELECT id, name, location, nss_capacity, ncc_capacity FROM universities').all();
+    const responsibleProblems = db.prepare(`
+      SELECT p.id, p.title, p.category, p.urgency, p.status, p.government_department,
+             (SELECT count(*) FROM university_problem_acceptances upa WHERE upa.problem_id = p.id AND upa.status = 'ACCEPTED') as accepted_universities,
+             (SELECT count(*) FROM proposals pr WHERE pr.problem_id = p.id) as proposal_count
+      FROM problems p
+    `).all();
+    const proposals = db.prepare(`
+      SELECT pr.id, pr.problem_id, pr.status, pr.created_at, u.name as university_name, p.title as problem_title
+      FROM proposals pr
+      JOIN universities u ON pr.university_id = u.id
+      JOIN problems p ON pr.problem_id = p.id
+    `).all();
 
     const platformContext = {
       disaster,
       relocationSites,
       requirements,
       hospitals,
-      universities
+      universities,
+      responsibleProblems,
+      proposals,
+      currentUser: {
+        name: req.user.name,
+        role: req.user.role,
+        department: 'District Disaster & Welfare Command Authority',
+        jurisdiction: 'District X'
+      }
     };
 
     const aiResult = await disasterAssistantQuery(query, platformContext);

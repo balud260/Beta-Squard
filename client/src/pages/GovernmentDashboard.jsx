@@ -538,8 +538,14 @@ export default function GovernmentDashboard() {
           />
         )}
 
-        {/* AI Command Assistant Modal */}
-        {showAiModal && <AIAssistantModal onClose={() => setShowAiModal(false)} />}
+        {/* AI Command Assistant Drawer */}
+        {showAiModal && (
+          <AIAssistantModal
+            isOpen={showAiModal}
+            onClose={() => setShowAiModal(false)}
+            disasterId={activeDisaster ? activeDisaster.id : 1}
+          />
+        )}
 
       </main>
     </div>
