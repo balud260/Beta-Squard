@@ -50,11 +50,27 @@ app.use('/api/impact', impactRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/students', studentRoutes);
 
-// Health Check
+// Health & Status Check Endpoints (Root & /health)
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'sankalp-api',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'sankalp-api',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
-    status: 'ONLINE',
-    system: 'SolveLink AI Engine',
+    status: 'ok',
+    service: 'sankalp-api',
     timestamp: new Date().toISOString()
   });
 });

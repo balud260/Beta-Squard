@@ -17,9 +17,14 @@ router.post('/login', (req, res) => {
     }
 
     const cleanEmail = email.trim().toLowerCase();
+    console.log(`[AUTH] Login request received for email: ${cleanEmail}`);
+    console.log(`[AUTH] Database lookup started`);
+
     const user = db.prepare("SELECT * FROM users WHERE LOWER(email) = ? AND status = 'ACTIVE'").get(cleanEmail);
+    console.log(`[AUTH] User lookup completed (found: ${Boolean(user)})`);
 
     if (!user) {
+      console.warn(`[AUTH] User not found or inactive for email: ${cleanEmail}`);
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
@@ -32,8 +37,11 @@ router.post('/login', (req, res) => {
     }
 
     if (!isMatch) {
+      console.warn(`[AUTH] Password mismatch for user ID: ${user.id}`);
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
+
+    console.log(`[AUTH] Credentials verified for user ID: ${user.id}`);
 
     // Attach role-specific metadata
     let orgDetails = null;
@@ -61,6 +69,7 @@ router.post('/login', (req, res) => {
     };
 
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '24h' });
+    console.log(`[AUTH] Token generated, sending HTTP 200 response`);
 
     res.json({
       message: 'Login successful',
@@ -77,7 +86,7 @@ router.post('/login', (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('[AUTH] Login internal error:', error);
     res.status(500).json({ error: 'Internal server error during authentication.' });
   }
 });

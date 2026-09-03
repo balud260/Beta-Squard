@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 import Navbar from '../components/Navbar';
 import SankalpLogo from '../components/SankalpLogo';
 import { Shield, GraduationCap, Building2, User, ArrowRight, Lock, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
@@ -22,6 +23,13 @@ export default function LoginPage() {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // Background ping on mount to wake up Render container if cold
+  useEffect(() => {
+    api.healthCheck().catch(() => {
+      // Safe background warm-up attempt, ignore errors
+    });
+  }, []);
 
   function redirectRole(role) {
     if (role === 'GOVERNMENT') navigate('/dashboard/government');

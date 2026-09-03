@@ -35,9 +35,10 @@ async function request(endpoint, options = {}) {
 
   const url = `${API_BASE}${endpoint}`;
 
-  // Configure 12-second request timeout controller to prevent infinite "Signing in..." state
+  // Configure 25-second request timeout controller to accommodate Render container cold starts
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs || 12000);
+  const timeoutMs = options.timeoutMs || 25000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
@@ -73,8 +74,11 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
+  // System Health
+  healthCheck: () => request('/health', { timeoutMs: 15000 }),
+
   // Auth
-  login: (credentials) => request('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
+  login: (credentials) => request('/auth/login', { method: 'POST', body: JSON.stringify(credentials), timeoutMs: 25000 }),
   registerGovernment: (data) => request('/auth/register-government', { method: 'POST', body: JSON.stringify(data) }),
   registerUniversity: (data) => request('/auth/register-university', { method: 'POST', body: JSON.stringify(data) }),
   getMe: () => request('/auth/me'),
