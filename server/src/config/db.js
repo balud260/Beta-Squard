@@ -112,17 +112,52 @@ async function initDb() {
       console.log('Database successfully seeded with realistic demo data.');
     }
 
-    // Ensure Hospital demo user exists on existing database
-    try {
-      const hospitalUser = queryGet("SELECT * FROM users WHERE email = 'hospital@solvelink.demo'");
-      if (!hospitalUser) {
-        rawDb.exec(`
-          INSERT INTO users (name, email, password_hash, role, hospital_id, status)
-          VALUES ('Dr. Vikram Seth (Hospital Admin)', 'hospital@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'HOSPITAL_ADMIN', 1, 'ACTIVE');
-        `);
-        saveToDisk();
+    // Ensure Hackathon Evaluator Test Accounts exist (idempotent seed)
+    const testAccounts = [
+      {
+        name: 'Commander Rajesh Sharma (Government)',
+        email: 'government@sankalp.ai',
+        password_hash: '$2a$10$.8DJDf1GNL7pX.gqf4NaNOcVd9EFpbi7zxu/s2yAZiWPwzHVjI0Oa',
+        role: 'GOVERNMENT',
+        organization_id: 2
+      },
+      {
+        name: 'Dr. Sunita Deshmukh (Hospital Owner)',
+        email: 'owner@sankalp.ai',
+        password_hash: '$2a$10$Wl5DEMuR2ubkVe2Jrf04WOo5PIRnGzBjXPBOI2voMloFESiJAPTOq',
+        role: 'PROBLEM_OWNER',
+        organization_id: 1
+      },
+      {
+        name: 'Prof. Arvind Kulkarni (University Authority)',
+        email: 'university@sankalp.ai',
+        password_hash: '$2a$10$BVrW.FfeXCSNXcvVfiBxhumDlnE6Y5LiG/1xf65JeeuVtw2X5xMbu',
+        role: 'UNIVERSITY_ADMIN',
+        university_id: 1
+      },
+      {
+        name: 'Aarav Mehta (Student Volunteer)',
+        email: 'student@sankalp.ai',
+        password_hash: '$2a$10$sfgCOByGQQlFsnB/tGhnc.60pM.V4S9fQK/GXKmILQ3jhbSaER5Hi',
+        role: 'STUDENT',
+        university_id: 1
       }
-    } catch (e) {}
+    ];
+
+    for (const acc of testAccounts) {
+      try {
+        const existing = queryGet('SELECT id FROM users WHERE LOWER(email) = ?', [acc.email]);
+        if (!existing) {
+          queryRun(
+            `INSERT INTO users (name, email, password_hash, role, organization_id, university_id, status)
+             VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+            [acc.name, acc.email, acc.password_hash, acc.role, acc.organization_id || null, acc.university_id || null]
+          );
+        }
+      } catch (e) {
+        console.warn('Test account seed notice:', e.message);
+      }
+    }
 
     const userCountRes = queryGet('SELECT count(*) as count FROM users');
     console.log(`SQLite Database ready. Total registered users: ${userCountRes ? userCountRes.count : 0}`);
