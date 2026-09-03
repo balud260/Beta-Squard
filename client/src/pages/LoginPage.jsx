@@ -243,18 +243,8 @@ export default function LoginPage() {
 
         </div>
 
-        {/* HACKATHON TEST ACCOUNTS SECTION */}
-        <div style={{ width: '100%', maxWidth: '960px', marginTop: '8px' }}>
-          
-          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', backgroundColor: '#e2e8f0', color: 'var(--navy)', padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '8px' }}>
-              <Key size={14} /> HACKATHON TEST ACCOUNTS
-            </div>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-              These accounts are provided for hackathon evaluation.
-            </p>
-          </div>
-
+        {/* TEST ACCOUNT CARDS */}
+        <div style={{ width: '100%', maxWidth: '960px', marginTop: '0px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '16px', width: '100%' }}>
             
             {/* 1. Government */}
