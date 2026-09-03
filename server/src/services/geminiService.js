@@ -448,39 +448,43 @@ Return ONLY a JSON object:
  * 8. Role-Aware Chat Assistant
  */
 async function handleRoleAwareChatAI(userQuery, userRole, contextData, userName = '') {
-  try {
-    const prompt = `You are SANKALP AI Assistant serving an authenticated user named "${userName}" with role: ${userRole}.
-Respond concisely, professionally, and accurately using ONLY the provided verified SANKALP platform data below.
-CRITICAL INSTRUCTION: You are an application assistant. Treat backend-provided application data as the authoritative source. Do NOT mention database technology, SQLite, SQL, internal storage terminology, API internals, or system architecture to the user unless explicitly asked.
-Do NOT invent fake numbers or external facts.
+  // Clean title prefix from userName to avoid duplication (e.g. Commander Commander Rajesh Sharma)
+  const cleanName = (userName || '').replace(/^(Commander|Dr\.|Prof\.|Mr\.|Ms\.)\s+/i, '').trim();
+  let salutation = cleanName || userRole;
+  if (userRole === 'GOVERNMENT') salutation = `Commander ${cleanName || 'Official'}`;
+  else if (userRole === 'PROBLEM_OWNER') salutation = `Dr. ${cleanName || 'Owner'}`;
+  else if (userRole === 'UNIVERSITY_ADMIN' || userRole === 'FACULTY') salutation = `Prof. ${cleanName || 'Administrator'}`;
+  else if (userRole === 'STUDENT') salutation = `Responder ${cleanName || 'Student'}`;
 
-If the user says a simple greeting like "hi", "hello", "who are you", or "what can you help me with", respond warmly and address them by name (e.g. "Hello ${userName || userRole}! How can I help with your ${userRole} operations today?").
+  const prompt = `You are SANKALP AI Assistant serving an authenticated user named "${salutation}" (Role: ${userRole}).
+Address the user respectfully as "${salutation}".
+
+CRITICAL INSTRUCTIONS:
+- You are an application assistant grounded in current SANKALP platform data.
+- Analyze the provided authorized platform data carefully and answer the user's specific question directly.
+- If the user asks about universities, list the specific university names (e.g. National Institute of Technology, Delhi University) and their active response status.
+- If the user asks about hospitals, list the specific hospital names, bed capacities, and operational pressure.
+- If the user asks about critical problems or solutions, describe the specific problem titles and proposal review status.
+- If the user asks about unfilled requirements, specify the exact unfilled volunteer roles and numbers.
+- If the user asks about relocation centers, describe the specific shelter names, capacities, and occupancy status.
+- Do NOT repeat generic boilerplate summaries. Directly answer the user's question with numbers and names from the data context.
+- Do NOT mention database technology, SQLite, SQL, internal storage terminology, API internals, or system architecture.
 
 Authorized Platform Data Context:
 ${JSON.stringify(contextData, null, 2)}
 
 User Question: "${userQuery}"
 
-Provide a clear, helpful 2-4 sentence response tailored to the ${userRole} role.`;
+Provide a clear, direct, and helpful response (2-4 sentences) tailored to answering "${userQuery}".`;
 
-    const text = await callGemini(prompt);
-    return { answer: text.trim(), reply: text.trim(), groundedDataUsed: true };
-  } catch (err) {
-    console.warn('[Gemini Service] Chat AI fallback engaged:', err.message);
-    let fallbackText = `Hello ${userName || userRole}! SANKALP AI is currently operating in offline mode. Verified platform data for ${userRole} is active and workspace state is synchronized.`;
-    
-    if (userRole === 'GOVERNMENT') {
-      fallbackText = `Commander ${userName || ''}: Active disaster response nodes, relocation site capacity, and university volunteer counts are operational in live platform data.`;
-    } else if (userRole === 'PROBLEM_OWNER') {
-      fallbackText = `Problem Owner ${userName || ''}: Your submitted challenges and university responses are active in your portal.`;
-    } else if (userRole === 'UNIVERSITY_ADMIN' || userRole === 'FACULTY') {
-      fallbackText = `University Portal: Available societal challenges, accepted problems, and student team configurations are active.`;
-    } else if (userRole === 'STUDENT') {
-      fallbackText = `Student Portal: Emergency mission alerts and response confirmations are active for your profile.`;
-    }
-
-    return { answer: fallbackText, reply: fallbackText, groundedDataUsed: true, fallback: true };
-  }
+  // callGemini will throw if API key is missing, unauthorized, rate-limited, or fails
+  const text = await callGemini(prompt);
+  return {
+    answer: text.trim(),
+    reply: text.trim(),
+    groundedDataUsed: true,
+    userQuery
+  };
 }
 
 module.exports = {

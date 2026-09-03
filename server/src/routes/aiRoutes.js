@@ -11,69 +11,141 @@ const {
 } = require('../services/aiService');
 
 /**
+ * Helper function to build rich, role-specific operational platform context for Gemini AI
+ */
+function getRoleContextData(user, disasterId = null) {
+  const { role, id: userId, name: userName, university_id } = user;
+
+  let activeDisaster = null;
+  if (disasterId) {
+    activeDisaster = db.prepare('SELECT * FROM disasters WHERE id = ?').get(disasterId);
+  } else {
+    activeDisaster = db.prepare('SELECT * FROM disasters WHERE status = "RESPONSE_ACTIVE" ORDER BY id DESC LIMIT 1').get();
+  }
+
+  const disasterIdToUse = activeDisaster ? activeDisaster.id : 1;
+
+  const relocationSites = db.prepare('SELECT name, capacity, current_occupancy, status, road_status, risk_level, score FROM relocation_sites WHERE disaster_id = ?').all(disasterIdToUse);
+  
+  const requirements = db.prepare(`
+    SELECT dr.*,
+           (SELECT count(*) FROM volunteer_responses vr WHERE vr.requirement_id = dr.id AND vr.status = 'CONFIRMED') as confirmed_count
+    FROM disaster_requirements dr
+    WHERE dr.disaster_id = ?
+  `).all(disasterIdToUse);
+
+  const hospitals = db.prepare('SELECT name, location, available_beds, total_beds, emergency_capacity, status FROM hospitals').all();
+  const universities = db.prepare('SELECT id, name, location, nss_capacity, ncc_capacity, total_students FROM universities').all();
+
+  const responsibleProblems = db.prepare(`
+    SELECT p.id, p.title, p.category, p.urgency, p.status, p.government_department,
+           (SELECT count(*) FROM university_problem_acceptances upa WHERE upa.problem_id = p.id AND upa.status = 'ACCEPTED') as accepted_count,
+           (SELECT count(*) FROM proposals pr WHERE pr.problem_id = p.id) as proposal_count
+    FROM problems p
+  `).all();
+
+  const proposalsUnderReview = db.prepare(`
+    SELECT pr.id, pr.summary, pr.approach, pr.status, pr.created_at, p.title as problem_title, u.name as university_name
+    FROM proposals pr
+    JOIN problems p ON pr.problem_id = p.id
+    JOIN universities u ON pr.university_id = u.id
+  `).all();
+
+  if (role === 'GOVERNMENT') {
+    return {
+      activeDisaster,
+      relocationSites,
+      requirements,
+      hospitals,
+      universities,
+      responsibleProblems,
+      proposalsUnderReview,
+      currentUser: {
+        name: userName,
+        role: role,
+        department: 'District Disaster & Welfare Command Authority',
+        jurisdiction: 'District X'
+      }
+    };
+  }
+
+  if (role === 'PROBLEM_OWNER') {
+    const myProblems = db.prepare(`
+      SELECT p.id, p.title, p.category, p.urgency, p.status, p.created_at,
+             (SELECT count(*) FROM university_problem_acceptances upa WHERE upa.problem_id = p.id AND upa.status = 'ACCEPTED') as accepted_count,
+             (SELECT count(*) FROM university_problem_acceptances upa WHERE upa.problem_id = p.id) as total_responses,
+             (SELECT count(*) FROM proposals pr WHERE pr.problem_id = p.id) as proposal_count
+      FROM problems p
+      WHERE p.owner_id = ?
+    `).all(userId);
+
+    const proposalsReceived = db.prepare(`
+      SELECT pr.id, pr.summary, pr.approach, pr.cost, pr.timeline, pr.status, p.title as problem_title, u.name as university_name
+      FROM proposals pr
+      JOIN problems p ON pr.problem_id = p.id
+      JOIN universities u ON pr.university_id = u.id
+      WHERE p.owner_id = ?
+    `).all(userId);
+
+    const recentNotifications = db.prepare(`
+      SELECT title, message, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 5
+    `).all(userId);
+
+    return { myProblems, proposalsReceived, recentNotifications, currentUser: user };
+  }
+
+  if (role === 'UNIVERSITY_ADMIN' || role === 'FACULTY') {
+    const univId = university_id || 1;
+    const acceptedProblems = db.prepare(`
+      SELECT p.id, p.title, p.category, p.urgency, upa.accepted_at, upa.status
+      FROM university_problem_acceptances upa
+      JOIN problems p ON upa.problem_id = p.id
+      WHERE upa.university_id = ?
+    `).all(univId);
+
+    const availableProblems = db.prepare(`
+      SELECT p.id, p.title, p.category, p.urgency, p.location
+      FROM problems p
+      WHERE p.status IN ('PUBLISHED', 'SUBMITTED', 'ANALYZED')
+    `).all();
+
+    const myProposals = db.prepare(`
+      SELECT pr.id, pr.summary, pr.status, p.title as problem_title
+      FROM proposals pr
+      JOIN problems p ON pr.problem_id = p.id
+      WHERE pr.university_id = ?
+    `).all(univId);
+
+    return { acceptedProblems, availableProblems, myProposals, currentUser: user };
+  }
+
+  if (role === 'STUDENT') {
+    const mySubmissions = db.prepare(`
+      SELECT s.title, s.status, s.created_at, p.title as problem_title, p.category
+      FROM student_solution_submissions s
+      JOIN problems p ON s.problem_id = p.id
+      WHERE s.student_id = ?
+    `).all(userId);
+
+    return { mySubmissions, emergencyMissions: requirements, currentUser: user };
+  }
+
+  return { activeDisaster, hospitals, universities, currentUser: user };
+}
+
+/**
  * POST /api/ai/chat - Persistent Role-Aware Conversational AI Assistant
- * Strict IDOR Data Access Enforcement: Queries SQLite strictly for records owned/authorized for req.user
  */
 router.post('/chat', authenticateToken, async (req, res) => {
   try {
     const query = req.body.query || req.body.message;
-    const { role, id: userId, name: userName, university_id } = req.user;
+    const { role, name: userName } = req.user;
 
     if (!query || query.trim() === '') {
       return res.status(400).json({ error: 'Query string is required.' });
     }
 
-    let contextData = {};
-
-    // Filter database access strictly by role & ID
-    if (role === 'PROBLEM_OWNER') {
-      const myProblems = db.prepare(`
-        SELECT p.id, p.title, p.category, p.status, p.created_at,
-               (SELECT count(*) FROM university_problem_acceptances upa WHERE upa.problem_id = p.id AND upa.status = 'ACCEPTED') as accepted_count,
-               (SELECT count(*) FROM university_problem_acceptances upa WHERE upa.problem_id = p.id) as total_responses,
-               (SELECT count(*) FROM proposals pr WHERE pr.problem_id = p.id) as proposal_count
-        FROM problems p
-        WHERE p.owner_id = ?
-      `).all(userId);
-
-      const recentNotifications = db.prepare(`
-        SELECT title, message, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 5
-      `).all(userId);
-
-      contextData = { myProblems, recentNotifications };
-    } else if (role === 'UNIVERSITY_ADMIN' || role === 'FACULTY') {
-      const univId = university_id || 1;
-      const acceptedProblems = db.prepare(`
-        SELECT p.id, p.title, p.category, upa.accepted_at, upa.status
-        FROM university_problem_acceptances upa
-        JOIN problems p ON upa.problem_id = p.id
-        WHERE upa.university_id = ? AND upa.status = 'ACCEPTED'
-      `).all(univId);
-
-      const availableProblems = db.prepare(`
-        SELECT p.id, p.title, p.category, p.urgency, p.location
-        FROM problems p
-        WHERE p.status = 'PUBLISHED'
-      `).all();
-
-      contextData = { acceptedProblems, availableProblems };
-    } else if (role === 'STUDENT') {
-      const mySubmissions = db.prepare(`
-        SELECT s.title, s.status, s.created_at, p.title as problem_title, p.category
-        FROM student_solution_submissions s
-        JOIN problems p ON s.problem_id = p.id
-        WHERE s.student_id = ?
-      `).all(userId);
-
-      contextData = { mySubmissions };
-    } else if (role === 'GOVERNMENT') {
-      const activeDisaster = db.prepare('SELECT * FROM disasters WHERE status = "RESPONSE_ACTIVE" LIMIT 1').get();
-      const hospitals = db.prepare('SELECT name, available_beds, status FROM hospitals').all();
-      const universities = db.prepare('SELECT name, location, nss_capacity, ncc_capacity FROM universities').all();
-
-      contextData = { activeDisaster, hospitals, universities };
-    }
-
+    const contextData = getRoleContextData(req.user);
     const result = await handleRoleAwareChat(query, role, contextData, userName);
 
     res.json(result);
@@ -90,10 +162,10 @@ router.post('/chat', authenticateToken, async (req, res) => {
       return res.status(401).json({ error: 'Gemini API key unauthorized.' });
     }
     if (error.message.includes('429')) {
-      return res.status(429).json({ error: 'Gemini rate limit exceeded.' });
+      return res.status(429).json({ error: 'Gemini API rate limit reached. Please retry.' });
     }
 
-    res.status(500).json({ error: 'AI Assistant query failed.', details: error.message });
+    res.status(500).json({ error: 'AI Assistant is temporarily unavailable. Please try again.', details: error.message });
   }
 });
 
@@ -105,63 +177,17 @@ router.post('/assistant', authenticateToken, async (req, res) => {
     const query = req.body.query || req.body.message;
     const disaster_id = req.body.disaster_id;
 
-    if (!query) {
+    if (!query || query.trim() === '') {
       return res.status(400).json({ error: 'Query prompt is required.' });
     }
 
-    let disaster = null;
-    let relocationSites = [];
-    let requirements = [];
-    
-    if (disaster_id) {
-      disaster = db.prepare('SELECT * FROM disasters WHERE id = ?').get(disaster_id);
-      relocationSites = db.prepare('SELECT * FROM relocation_sites WHERE disaster_id = ?').all(disaster_id);
-      requirements = db.prepare('SELECT * FROM disaster_requirements WHERE disaster_id = ?').all(disaster_id);
-    } else {
-      disaster = db.prepare('SELECT * FROM disasters WHERE status = "RESPONSE_ACTIVE" ORDER BY id DESC').get();
-      if (disaster) {
-        relocationSites = db.prepare('SELECT * FROM relocation_sites WHERE disaster_id = ?').all(disaster.id);
-        requirements = db.prepare('SELECT * FROM disaster_requirements WHERE disaster_id = ?').all(disaster.id);
-      }
-    }
-
-    const hospitals = db.prepare('SELECT * FROM hospitals').all();
-    const universities = db.prepare('SELECT id, name, location, nss_capacity, ncc_capacity FROM universities').all();
-    const responsibleProblems = db.prepare(`
-      SELECT p.id, p.title, p.category, p.urgency, p.status, p.government_department,
-             (SELECT count(*) FROM university_problem_acceptances upa WHERE upa.problem_id = p.id AND upa.status = 'ACCEPTED') as accepted_universities,
-             (SELECT count(*) FROM proposals pr WHERE pr.problem_id = p.id) as proposal_count
-      FROM problems p
-    `).all();
-    const proposals = db.prepare(`
-      SELECT pr.id, pr.problem_id, pr.status, pr.created_at, u.name as university_name, p.title as problem_title
-      FROM proposals pr
-      JOIN universities u ON pr.university_id = u.id
-      JOIN problems p ON pr.problem_id = p.id
-    `).all();
-
-    const platformContext = {
-      disaster,
-      relocationSites,
-      requirements,
-      hospitals,
-      universities,
-      responsibleProblems,
-      proposals,
-      currentUser: {
-        name: req.user.name,
-        role: req.user.role,
-        department: 'District Disaster & Welfare Command Authority',
-        jurisdiction: 'District X'
-      }
-    };
-
-    const aiResult = await disasterAssistantQuery(query, platformContext);
+    const platformContext = getRoleContextData(req.user, disaster_id);
+    const aiResult = await disasterAssistantQuery(query, req.user.role, platformContext, req.user.name);
 
     res.json(aiResult);
   } catch (error) {
     console.error('AI assistant error:', error.message);
-    res.status(500).json({ error: 'AI Assistant query failed.', details: error.message });
+    res.status(500).json({ error: 'AI Assistant is temporarily unavailable. Please try again.', details: error.message });
   }
 });
 
