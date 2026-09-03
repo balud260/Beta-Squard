@@ -18,6 +18,11 @@ export default function FloatingAIAssistant() {
     }
   }, [messages, loading]);
 
+  // Non-blocking silent backend warm-up ping on mount to mitigate Render cold starts
+  useEffect(() => {
+    api.healthCheck().catch(() => {});
+  }, []);
+
   if (!user) return null;
 
   const getRoleTitle = (role) => {
@@ -27,7 +32,6 @@ export default function FloatingAIAssistant() {
     if (role === 'STUDENT') return 'SANKALP AI Assistant • Role: Student Responder';
     return 'SANKALP AI Assistant';
   };
-
 
   const getRoleQuestions = (role) => {
     if (role === 'GOVERNMENT') {
@@ -63,31 +67,86 @@ export default function FloatingAIAssistant() {
 
   const suggestedQuestions = getRoleQuestions(user.role);
 
-  async function handleSendQuery(textToSend) {
+  function formatCleanText(rawText) {
+    if (!rawText) return '';
+    let cleaned = String(rawText);
+    cleaned = cleaned.replace(/\*{2,}(.*?)\*{2,}/g, '$1');
+    cleaned = cleaned.replace(/\*(.*?)\*/g, '$1');
+    cleaned = cleaned.replace(/_{2,}(.*?)_{2,}/g, '$1');
+    cleaned = cleaned.replace(/_(.*?)_/g, '$1');
+    cleaned = cleaned.replace(/^#{1,6}\s+/gm, '');
+    return cleaned.trim();
+  }
+
+  function renderCleanMessageContent(rawText) {
+    const text = formatCleanText(rawText);
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const bulletItems = lines.filter(line => line.startsWith('•') || line.startsWith('-') || /^\d+\.\s/.test(line));
+
+    if (bulletItems.length >= 2) {
+      const headerLine = lines[0] && !bulletItems.includes(lines[0]) ? lines[0] : null;
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {headerLine && <div style={{ fontWeight: 600, marginBottom: '2px', lineHeight: '1.4' }}>{headerLine}</div>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            {bulletItems.map((item, idx) => {
+              const cleanItem = item.replace(/^([•\-]\s*|\d+\.\s*)/, '');
+              return (
+                <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', background: 'rgba(0,0,0,0.03)', padding: '5px 8px', borderRadius: '6px' }}>
+                  <span style={{ color: 'var(--terracotta)', fontWeight: 'bold', fontSize: '12px' }}>•</span>
+                  <span style={{ fontSize: '12.5px', lineHeight: '1.4', flex: 1 }}>{cleanItem}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    return <div style={{ whiteSpace: 'pre-line', lineHeight: '1.45' }}>{text}</div>;
+  }
+
+  async function handleSendQuery(textToSend, isRetry = false) {
     const promptText = textToSend || query;
     if (!promptText || promptText.trim() === '') return;
 
-    const userMsg = { id: Date.now(), sender: 'user', text: promptText };
-    setMessages((prev) => [...prev, userMsg]);
-    if (!textToSend) setQuery('');
+    if (!isRetry) {
+      const userMsg = { id: Date.now(), sender: 'user', text: promptText };
+      setMessages((prev) => [...prev, userMsg]);
+      if (!textToSend) setQuery('');
+    } else {
+      setMessages((prev) => prev.filter((m) => m.status !== 'error'));
+    }
+
     setLoading(true);
     setLastFailedQuery(null);
 
     try {
       const res = await api.chatAI(promptText);
-      const botMsg = { id: Date.now() + 1, sender: 'bot', text: res.answer || 'Analysis complete. State updated.', status: 'success' };
+      const botMsg = {
+        id: Date.now() + 1,
+        sender: 'bot',
+        text: res.answer || res.reply || 'Analysis complete.',
+        status: 'success'
+      };
       setMessages((prev) => [...prev, botMsg]);
     } catch (err) {
       setLastFailedQuery(promptText);
       const fallbackMsg = {
         id: Date.now() + 1,
         sender: 'bot',
-        text: 'AI analysis temporarily unavailable. Please try again.',
+        text: err.message || 'AI assistant is temporarily unavailable. Please click Retry.',
         status: 'error'
       };
       setMessages((prev) => [...prev, fallbackMsg]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  function handleRetryQuery() {
+    if (lastFailedQuery && !loading) {
+      handleSendQuery(lastFailedQuery, true);
     }
   }
 
@@ -231,11 +290,11 @@ export default function FloatingAIAssistant() {
                   maxWidth: '88%',
                   lineHeight: 1.45
                 }}>
-                  {m.text}
+                  {renderCleanMessageContent(m.text)}
                   {m.status === 'error' && lastFailedQuery && (
                     <div style={{ marginTop: '8px' }}>
                       <button
-                        onClick={() => handleSendQuery(lastFailedQuery)}
+                        onClick={handleRetryQuery}
                         className="btn btn-primary btn-sm"
                         style={{ fontSize: '11px', padding: '4px 10px', backgroundColor: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}
                       >

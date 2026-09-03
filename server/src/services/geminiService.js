@@ -31,13 +31,46 @@ function cleanAndParseJSON(text, fallback = null) {
 }
 
 /**
+ * Safely strips markdown code blocks, asterisks, bold/italic symbols, and headings
+ * to produce clean, professional plain-text or structured responses for UI rendering.
+ */
+function formatCleanAIResponse(text) {
+  if (!text || typeof text !== 'string') return '';
+
+  let cleaned = text.trim();
+
+  // Strip code block fences
+  cleaned = cleaned.replace(/^```[a-z]*\n?/gi, '').replace(/\n?```$/gi, '').trim();
+
+  // Strip markdown headings (### Heading -> Heading)
+  cleaned = cleaned.replace(/^#{1,6}\s+/gm, '');
+
+  // Strip bold (**text** -> text) and italic (*text* -> text or _text_ -> text)
+  cleaned = cleaned.replace(/\*{2,}(.*?)\*{2,}/g, '$1');
+  cleaned = cleaned.replace(/\*(.*?)\*/g, '$1');
+  cleaned = cleaned.replace(/_{2,}(.*?)_{2,}/g, '$1');
+  cleaned = cleaned.replace(/_(.*?)_/g, '$1');
+
+  // Normalize bullet markers
+  cleaned = cleaned.replace(/^\s*\*\s+/gm, '• ');
+
+  // Clean trailing spaces and excessive blank lines
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+
+  return cleaned.trim();
+}
+
+/**
  * Core Centralized Gemini API Caller with Timeout, 429 Rate Limit Handling, Retry, and Detailed Errors
  */
 async function callGemini(prompt, options = {}) {
+  const startTime = Date.now();
   const genAI = getGenAIClient();
   if (!genAI) {
-    console.warn('[Gemini Service Warning] GEMINI_API_KEY environment variable is not configured.');
-    throw new Error('GEMINI_API_KEY is not configured on server.');
+    console.warn('[AI GEMINI] status: FAILURE | category: AI_AUTH | duration: 0ms | details: GEMINI_API_KEY missing');
+    const err = new Error('GEMINI_API_KEY is not configured on server.');
+    err.category = 'AI_AUTH';
+    throw err;
   }
 
   const timeoutMs = options.timeoutMs || 25000;
@@ -49,24 +82,35 @@ async function callGemini(prompt, options = {}) {
     try {
       const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
-      // Timeout wrapper
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`Gemini API request timed out after ${timeoutMs}ms`)), timeoutMs)
-      );
+      // Concurrency-safe Timeout Promise
+      const timeoutPromise = new Promise((_, reject) => {
+        const timer = setTimeout(() => {
+          const err = new Error(`Gemini API request timed out after ${timeoutMs}ms`);
+          err.category = 'AI_TIMEOUT';
+          reject(err);
+        }, timeoutMs);
+        if (timer.unref) timer.unref();
+      });
 
       const generatePromise = model.generateContent(prompt);
       const result = await Promise.race([generatePromise, timeoutPromise]);
 
       const responseText = result.response.text();
+      const duration = Date.now() - startTime;
+      console.log(`[AI GEMINI] request started: YES | model: ${GEMINI_MODEL} | duration: ${duration}ms | status: SUCCESS`);
       return responseText.trim();
     } catch (error) {
       lastError = error;
       const isRateLimit = error.status === 429 || error.message?.includes('429') || error.message?.includes('Quota exceeded');
+      const isTimeout = error.category === 'AI_TIMEOUT' || error.message?.includes('timed out');
       
-      console.error(`[Gemini Service Error] (Attempt ${attempt + 1}/${maxRetries + 1}, Model: ${GEMINI_MODEL}):`, error.message);
+      const errorCategory = isRateLimit ? 'AI_QUOTA' : isTimeout ? 'AI_TIMEOUT' : (error.message?.includes('401') || error.message?.includes('403')) ? 'AI_AUTH' : error.message?.includes('404') ? 'AI_MODEL_ERROR' : 'AI_INTERNAL_ERROR';
+      error.category = errorCategory;
+
+      console.error(`[AI GEMINI] attempt: ${attempt + 1}/${maxRetries + 1} | model: ${GEMINI_MODEL} | category: ${errorCategory} | error:`, error.message);
       
       // If unauthorized or model invalid, stop retrying immediately
-      if (error.message?.includes('401') || error.message?.includes('403') || error.message?.includes('404')) {
+      if (errorCategory === 'AI_AUTH' || errorCategory === 'AI_MODEL_ERROR') {
         break;
       }
       
@@ -77,8 +121,13 @@ async function callGemini(prompt, options = {}) {
     }
   }
 
-  if (lastError?.status === 429 || lastError?.message?.includes('429')) {
-    throw new Error('Gemini API rate limit exceeded (HTTP 429). Please wait a moment and try again.');
+  const finalCategory = lastError?.category || 'AI_INTERNAL_ERROR';
+  console.error(`[AI RESULT] success/failure: FAILURE | error_category: ${finalCategory} | total_duration: ${Date.now() - startTime}ms`);
+
+  if (lastError?.status === 429 || lastError?.message?.includes('429') || finalCategory === 'AI_QUOTA') {
+    const err = new Error('Gemini API rate limit reached (HTTP 429). Please wait a moment and click Retry.');
+    err.category = 'AI_QUOTA';
+    throw err;
   }
 
   throw lastError || new Error('Gemini API call failed.');
@@ -448,6 +497,18 @@ Return ONLY a JSON object:
  * 8. Role-Aware Chat Assistant
  */
 async function handleRoleAwareChatAI(userQuery, userRole, contextData, userName = '') {
+  const reqId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const timestamp = new Date().toISOString();
+
+  console.log(`[AI REQUEST] feature: role_aware_chat | user_role: ${userRole} | request_id: ${reqId} | endpoint: /api/ai/chat | timestamp: ${timestamp}`);
+
+  const recordCounts = Object.keys(contextData || {}).reduce((acc, key) => {
+    acc[key] = Array.isArray(contextData[key]) ? contextData[key].length : (contextData[key] ? 1 : 0);
+    return acc;
+  }, {});
+
+  console.log(`[AI CONTEXT] context_loaded: TRUE | context_type: ${userRole}_PLATFORM_CONTEXT | record_counts:`, JSON.stringify(recordCounts));
+
   // Clean title prefix from userName to avoid duplication (e.g. Commander Commander Rajesh Sharma)
   const cleanName = (userName || '').replace(/^(Commander|Dr\.|Prof\.|Mr\.|Ms\.)\s+/i, '').trim();
   let salutation = cleanName || userRole;
@@ -462,12 +523,12 @@ Address the user respectfully as "${salutation}".
 CRITICAL INSTRUCTIONS:
 - You are an application assistant grounded in current SANKALP platform data.
 - Analyze the provided authorized platform data carefully and answer the user's specific question directly.
+- FORMATTING RULE: Do NOT output raw Markdown asterisks like **bold** or *italic* or ### headings. Use plain, clean text with standard punctuation.
+- LIST RULE: Use bullet points (•) ONLY if there are multiple (2 or more) distinct items to list. If there is only 1 item, provide a single clear paragraph.
 - If the user asks about universities, list the specific university names (e.g. National Institute of Technology, Delhi University) and their active response status.
 - If the user asks about hospitals, list the specific hospital names, bed capacities, and operational pressure.
 - If the user asks about critical problems or solutions, describe the specific problem titles and proposal review status.
 - If the user asks about unfilled requirements, specify the exact unfilled volunteer roles and numbers.
-- If the user asks about relocation centers, describe the specific shelter names, capacities, and occupancy status.
-- Do NOT repeat generic boilerplate summaries. Directly answer the user's question with numbers and names from the data context.
 - Do NOT mention database technology, SQLite, SQL, internal storage terminology, API internals, or system architecture.
 
 Authorized Platform Data Context:
@@ -475,16 +536,26 @@ ${JSON.stringify(contextData, null, 2)}
 
 User Question: "${userQuery}"
 
-Provide a clear, direct, and helpful response (2-4 sentences) tailored to answering "${userQuery}".`;
+Provide a clear, direct, clean, and helpful response (2-4 sentences) tailored to answering "${userQuery}".`;
 
-  // callGemini will throw if API key is missing, unauthorized, rate-limited, or fails
-  const text = await callGemini(prompt);
-  return {
-    answer: text.trim(),
-    reply: text.trim(),
-    groundedDataUsed: true,
-    userQuery
-  };
+  try {
+    const rawText = await callGemini(prompt);
+    const formattedAnswer = formatCleanAIResponse(rawText);
+
+    console.log(`[AI RESULT] success/failure: SUCCESS | request_id: ${reqId} | user_role: ${userRole}`);
+
+    return {
+      answer: formattedAnswer,
+      reply: formattedAnswer,
+      groundedDataUsed: true,
+      userQuery,
+      reqId
+    };
+  } catch (err) {
+    const errorCategory = err.category || (err.message?.includes('429') ? 'AI_QUOTA' : err.message?.includes('timed out') ? 'AI_TIMEOUT' : 'AI_INTERNAL_ERROR');
+    console.error(`[AI RESULT] success/failure: FAILURE | error_category: ${errorCategory} | request_id: ${reqId} | message:`, err.message);
+    throw err;
+  }
 }
 
 module.exports = {

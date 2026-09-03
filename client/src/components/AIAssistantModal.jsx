@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { Bot, Send, X, Sparkles, CheckCircle2, RefreshCw, Shield, AlertCircle } from 'lucide-react';
 
@@ -14,6 +14,13 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
+  // Non-blocking silent backend warm-up ping on mount to mitigate Render cold starts
+  useEffect(() => {
+    if (isOpen) {
+      api.healthCheck().catch(() => {});
+    }
+  }, [isOpen]);
+
   if (isOpen === false) return null;
 
   const quickPrompts = [
@@ -25,14 +32,59 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
     { label: 'Disaster Summary', prompt: 'Summarize the current disaster situation and immediate priorities.' }
   ];
 
-  const handleSend = async (textToSend) => {
+  function formatCleanText(rawText) {
+    if (!rawText) return '';
+    let cleaned = String(rawText);
+    cleaned = cleaned.replace(/\*{2,}(.*?)\*{2,}/g, '$1');
+    cleaned = cleaned.replace(/\*(.*?)\*/g, '$1');
+    cleaned = cleaned.replace(/_{2,}(.*?)_{2,}/g, '$1');
+    cleaned = cleaned.replace(/_(.*?)_/g, '$1');
+    cleaned = cleaned.replace(/^#{1,6}\s+/gm, '');
+    return cleaned.trim();
+  }
+
+  function renderCleanMessageContent(rawText) {
+    const text = formatCleanText(rawText);
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const bulletItems = lines.filter(line => line.startsWith('•') || line.startsWith('-') || /^\d+\.\s/.test(line));
+
+    if (bulletItems.length >= 2) {
+      const headerLine = lines[0] && !bulletItems.includes(lines[0]) ? lines[0] : null;
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {headerLine && <div style={{ fontWeight: 600, marginBottom: '2px', lineHeight: '1.4' }}>{headerLine}</div>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            {bulletItems.map((item, idx) => {
+              const cleanItem = item.replace(/^([•\-]\s*|\d+\.\s*)/, '');
+              return (
+                <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', background: 'rgba(0,0,0,0.03)', padding: '5px 8px', borderRadius: '6px' }}>
+                  <span style={{ color: 'var(--navy)', fontWeight: 'bold', fontSize: '12px' }}>•</span>
+                  <span style={{ fontSize: '13px', lineHeight: '1.4', flex: 1 }}>{cleanItem}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    return <div style={{ whiteSpace: 'pre-line', lineHeight: '1.5' }}>{text}</div>;
+  }
+
+  const handleSend = async (textToSend, isRetry = false) => {
     const promptText = textToSend || query;
     if (!promptText.trim() || loading) return;
 
     setErrorMsg(null);
-    const updatedMsgs = [...messages, { sender: 'user', text: promptText }];
-    setMessages(updatedMsgs);
-    setQuery('');
+    let updatedMsgs = messages;
+    if (!isRetry) {
+      updatedMsgs = [...messages, { sender: 'user', text: promptText }];
+      setMessages(updatedMsgs);
+      if (!textToSend) setQuery('');
+    } else {
+      updatedMsgs = messages.filter(m => !m.isError);
+      setMessages(updatedMsgs);
+    }
     setLoading(true);
 
     try {
@@ -47,7 +99,7 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
       ]);
     } catch (err) {
       console.error('AI Command Assistant error:', err);
-      setErrorMsg('AI Command Assistant is temporarily unavailable.');
+      setErrorMsg(err.message || 'AI Command Assistant is temporarily unavailable. Please click Retry.');
       setMessages([
         ...updatedMsgs,
         {
@@ -63,8 +115,8 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
 
   const handleRetry = () => {
     const lastUserMsg = [...messages].reverse().find(m => m.sender === 'user');
-    if (lastUserMsg) {
-      handleSend(lastUserMsg.text);
+    if (lastUserMsg && !loading) {
+      handleSend(lastUserMsg.text, true);
     }
   };
 
@@ -157,11 +209,10 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
                 border: m.sender === 'ai' ? '1px solid var(--border-light)' : 'none',
                 boxShadow: 'var(--shadow-sm)',
                 fontSize: '0.9rem',
-                lineHeight: 1.55,
-                whiteSpace: 'pre-line'
+                lineHeight: 1.55
               }}
             >
-              {m.text}
+              {renderCleanMessageContent(m.text)}
               {m.grounded && (
                 <div style={{ fontSize: '0.7rem', color: m.sender === 'user' ? 'rgba(255,255,255,0.7)' : 'var(--status-success)', marginTop: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <CheckCircle2 size={10} /> Grounded in Current SANKALP Data

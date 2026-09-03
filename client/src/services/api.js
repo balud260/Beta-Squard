@@ -155,10 +155,13 @@ export const api = {
   // Impact
   getImpactMetrics: () => request('/impact'),
 
-  // Centralized AI Service Endpoints
-  chatAI: (query) => request('/ai/chat', { method: 'POST', body: JSON.stringify({ query }) }),
-  queryAIAssistant: (data) => request('/ai/assistant', { method: 'POST', body: JSON.stringify(data) }),
-  analyzeTeamSkillGap: (data) => request('/ai/team-skill-gap', { method: 'POST', body: JSON.stringify(data) }),
-  analyzeProposals: (data) => request('/ai/proposal-analysis', { method: 'POST', body: JSON.stringify(data) }),
-  getImpactAIAnalysis: () => request('/ai/impact-analysis')
+  // Health & Warm-up Ping
+  healthCheck: () => request('/health', { timeoutMs: 5000 }),
+
+  // Centralized AI Service Endpoints (configured with 30s timeout for cold start resiliency)
+  chatAI: (query) => request('/ai/chat', { method: 'POST', body: JSON.stringify({ query }), timeoutMs: 30000 }),
+  queryAIAssistant: (data) => request('/ai/assistant', { method: 'POST', body: JSON.stringify(data), timeoutMs: 30000 }),
+  analyzeTeamSkillGap: (data) => request('/ai/team-skill-gap', { method: 'POST', body: JSON.stringify(data), timeoutMs: 30000 }),
+  analyzeProposals: (data) => request('/ai/proposal-analysis', { method: 'POST', body: JSON.stringify(data), timeoutMs: 30000 }),
+  getImpactAIAnalysis: () => request('/ai/impact-analysis', { timeoutMs: 30000 })
 };
