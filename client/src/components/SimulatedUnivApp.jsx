@@ -11,11 +11,26 @@ export default function SimulatedUnivApp({ isOpen, onClose, onResponseRecorded }
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [rerouteAlert, setRerouteAlert] = useState(null);
+
   useEffect(() => {
     if (isOpen) {
       fetchRequirements();
+      fetchNotifications();
     }
   }, [isOpen]);
+
+  async function fetchNotifications() {
+    try {
+      const res = await api.getNotifications();
+      const rerouteNotif = (res.notifications || []).find(n => n.title && n.title.includes('RE-ROUTING'));
+      if (rerouteNotif) {
+        setRerouteAlert(rerouteNotif);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
 
   async function fetchRequirements() {
     try {
@@ -88,6 +103,21 @@ export default function SimulatedUnivApp({ isOpen, onClose, onResponseRecorded }
             <span>SANKALP AI • NIT Student</span>
             <span>100% 🔋</span>
           </div>
+
+          {/* AI Emergency Re-Routing Alert */}
+          {rerouteAlert && (
+            <div style={{ backgroundColor: '#450a0a', border: '1px solid #991b1b', borderRadius: '12px', padding: '12px', marginBottom: '1rem', color: '#ffffff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fca5a5', fontWeight: 700, fontSize: '0.8rem', marginBottom: '0.35rem' }}>
+                <ShieldAlert size={16} /> {rerouteAlert.title}
+              </div>
+              <div style={{ fontSize: '0.775rem', color: '#ffffff', lineHeight: 1.4, marginBottom: '0.5rem' }}>
+                {rerouteAlert.message}
+              </div>
+              <div style={{ fontSize: '0.725rem', color: '#fca5a5', backgroundColor: '#7f1d1d', padding: '6px 8px', borderRadius: '6px', lineHeight: 1.3 }}>
+                <strong>🤖 AI Redirection:</strong> Destination automatically updated. Please re-route immediately to recommended shelter.
+              </div>
+            </div>
+          )}
 
 
           {/* Alert Card */}

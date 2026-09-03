@@ -25,6 +25,10 @@ export default function GovernmentDashboard() {
   const [selectedProblem, setSelectedProblem] = useState(null);
   const [loadingProblems, setLoadingProblems] = useState(false);
 
+  // Dynamic AI Relocation Re-Routing State
+  const [rerouteResult, setRerouteResult] = useState(null);
+  const [loadingReroute, setLoadingReroute] = useState(false);
+
   useEffect(() => {
     document.title = 'SANKALP AI | Government Disaster Command';
     loadGovernmentDashboard();
@@ -87,6 +91,21 @@ export default function GovernmentDashboard() {
       loadGovernmentDashboard();
     } catch (err) {
       setMessage('Failed to approve relocation site.');
+    }
+  }
+
+  async function handleExecuteReroute(siteId) {
+    if (!activeDisaster) return;
+    setLoadingReroute(true);
+    try {
+      const res = await api.rerouteRelocation(activeDisaster.id, { full_site_id: siteId });
+      setRerouteResult(res);
+      setMessage(res.message || 'AI Relocation Re-routing executed successfully.');
+      loadGovernmentDashboard();
+    } catch (err) {
+      setMessage('Failed to execute AI relocation re-routing.');
+    } finally {
+      setLoadingReroute(false);
     }
   }
 
@@ -358,47 +377,103 @@ export default function GovernmentDashboard() {
             <div className="card" style={{ marginBottom: '2rem' }}>
               <div className="panel-head">
                 <div>
-                  <h3 className="card-title">Relocation Site Evaluation &amp; Decision Support</h3>
+                  <h3 className="card-title">Relocation Site Evaluation &amp; Re-Routing Control</h3>
                   <p className="text-muted" style={{ marginTop: '0.2rem' }}>
-                    Review AI-calculated safety scores and issue official Government Approvals.
+                    Review AI safety scores, trigger capacity re-routing, and issue official Government Approvals.
                   </p>
                 </div>
-                <span className="badge badge-primary">AI RECOMMENDATION ENGINE</span>
+                <span className="badge badge-primary">AI RECOMMENDATION &amp; RE-ROUTING ENGINE</span>
               </div>
 
-              <div className="grid grid-cols-2" style={{ gap: '1.25rem' }}>
-                {relocationSites.map((site) => (
-                  <div key={site.id} style={{ padding: '1.25rem', borderRadius: 'var(--radius-md)', border: site.status === 'APPROVED' ? '2px solid var(--status-success)' : '1px solid var(--border-light)', backgroundColor: '#ffffff' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                      {site.status === 'APPROVED' ? (
-                        <span className="badge badge-success">
-                          <CheckCircle2 size={12} /> GOVERNMENT APPROVED
-                        </span>
-                      ) : (
-                        <span className="badge badge-primary">
-                          <Sparkles size={12} /> AI RECOMMENDATION (SCORE: {site.score}/100)
-                        </span>
-                      )}
-                      <span className="metadata-text">Distance: {site.hospital_distance_km} km</span>
+              {/* AI Relocation Re-Routing Result Panel */}
+              {rerouteResult && (
+                <div style={{ backgroundColor: '#0f291e', color: '#ffffff', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem', border: '1px solid #1f523c' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f87171', fontWeight: 700, fontSize: '0.9rem' }}>
+                      <AlertTriangle size={18} /> SANKALP AI DYNAMIC RELOCATION NODE RE-ROUTING
                     </div>
-
-                    <h4 style={{ fontSize: '1.05rem', color: 'var(--navy)', marginBottom: '0.3rem' }}>{site.name}</h4>
-                    <div className="metadata-row" style={{ marginBottom: '0.85rem' }}>
-                      <div>Capacity: <strong>{site.capacity?.toLocaleString()}</strong></div>
-                      <div>Road Status: <strong>{site.road_status}</strong></div>
-                    </div>
-
-                    {site.status !== 'APPROVED' && (
-                      <button
-                        onClick={() => handleApproveRelocationSite(site.id)}
-                        className="btn btn-primary btn-sm"
-                        style={{ width: '100%', backgroundColor: 'var(--status-success)', borderColor: 'var(--status-success)' }}
-                      >
-                        <Check size={14} /> Issue Official Government Approval
-                      </button>
-                    )}
+                    <button onClick={() => setRerouteResult(null)} style={{ background: 'none', border: 'none', color: '#a7f3d0', cursor: 'pointer' }}>
+                      <X size={16} />
+                    </button>
                   </div>
-                ))}
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem', backgroundColor: '#163e2d', padding: '1rem', borderRadius: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: '#a7f3d0', textTransform: 'uppercase' }}>Full Node Center</div>
+                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f87171' }}>
+                        {rerouteResult.full_site?.name || 'Relief Center A'} (FULL: {rerouteResult.full_site?.capacity || 1000} / {rerouteResult.full_site?.capacity || 1000})
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: '#a7f3d0', textTransform: 'uppercase' }}>AI Calculated Redirect Target</div>
+                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#4ade80' }}>
+                        {rerouteResult.recommended_redirect_site?.name} ({rerouteResult.recommended_redirect_site?.distance_km} km away • {rerouteResult.recommended_redirect_site?.available_spots} open spots)
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ backgroundColor: '#133527', padding: '0.85rem', borderRadius: '8px', borderLeft: '4px solid #4ade80', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: 1.5 }}>
+                    <strong>🤖 AI Assistant Redirection:</strong> "{rerouteResult.ai_guidance}"
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#a7f3d0' }}>
+                    <div>📡 Push Notifications Broadcasted: <strong>{rerouteResult.affected_volunteers_count} Active Student Volunteers Alerted</strong></div>
+                    <span className="badge badge-success">LIVE DESTINATION UPDATED</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2" style={{ gap: '1.25rem' }}>
+                {relocationSites.map((site) => {
+                  const isFull = site.status === 'FULL' || (site.current_occupancy && site.current_occupancy >= site.capacity);
+                  return (
+                    <div key={site.id} style={{ padding: '1.25rem', borderRadius: 'var(--radius-md)', border: isFull ? '2px solid var(--status-error)' : (site.status === 'APPROVED' ? '2px solid var(--status-success)' : '1px solid var(--border-light)'), backgroundColor: '#ffffff' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                        {isFull ? (
+                          <span className="badge badge-error" style={{ backgroundColor: '#fee2e2', color: '#dc2626' }}>
+                            🚨 CENTER FULL ({site.capacity}/{site.capacity})
+                          </span>
+                        ) : site.status === 'APPROVED' ? (
+                          <span className="badge badge-success">
+                            <CheckCircle2 size={12} /> GOVERNMENT APPROVED
+                          </span>
+                        ) : (
+                          <span className="badge badge-primary">
+                            <Sparkles size={12} /> AI RECOMMENDATION (SCORE: {site.score}/100)
+                          </span>
+                        )}
+                        <span className="metadata-text">Distance: {site.hospital_distance_km} km</span>
+                      </div>
+
+                      <h4 style={{ fontSize: '1.05rem', color: 'var(--navy)', marginBottom: '0.3rem' }}>{site.name}</h4>
+                      <div className="metadata-row" style={{ marginBottom: '0.85rem' }}>
+                        <div>Occupancy: <strong>{site.current_occupancy || (isFull ? site.capacity : 350)} / {site.capacity?.toLocaleString()}</strong></div>
+                        <div>Road Status: <strong>{site.road_status}</strong></div>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <button
+                          onClick={() => handleExecuteReroute(site.id)}
+                          className="btn btn-warning btn-sm"
+                          disabled={loadingReroute}
+                          style={{ width: '100%', fontSize: '0.75rem' }}
+                        >
+                          <AlertTriangle size={13} /> {isFull ? 'Run AI Re-Routing for Full Center' : 'Simulate Node Full (1,000/1,000) & Run AI Re-Routing'}
+                        </button>
+
+                        {site.status !== 'APPROVED' && (
+                          <button
+                            onClick={() => handleApproveRelocationSite(site.id)}
+                            className="btn btn-primary btn-sm"
+                            style={{ width: '100%', backgroundColor: 'var(--status-success)', borderColor: 'var(--status-success)', fontSize: '0.75rem' }}
+                          >
+                            <Check size={13} /> Issue Official Government Approval
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

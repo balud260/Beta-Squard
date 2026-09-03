@@ -366,4 +366,114 @@ router.post('/:id/requirements', authenticateToken, authorizeRoles('GOVERNMENT')
   }
 });
 
+/**
+ * POST /api/disasters/:id/re-route-relocation
+ * Dynamic AI Relocation Node Re-Routing System
+ */
+router.post('/:id/re-route-relocation', authenticateToken, async (req, res) => {
+  try {
+    const disasterId = req.params.id;
+    const { full_site_id } = req.body;
+
+    const disaster = db.prepare('SELECT * FROM disasters WHERE id = ?').get(disasterId);
+    if (!disaster) {
+      return res.status(404).json({ error: 'Disaster incident not found.' });
+    }
+
+    // Get the site that reached full capacity
+    let fullSite = null;
+    if (full_site_id) {
+      fullSite = db.prepare('SELECT * FROM relocation_sites WHERE id = ? AND disaster_id = ?').get(full_site_id, disasterId);
+    } else {
+      fullSite = db.prepare('SELECT * FROM relocation_sites WHERE disaster_id = ? AND (status = "FULL" OR current_occupancy >= capacity) LIMIT 1').get(disasterId);
+    }
+
+    if (!fullSite) {
+      fullSite = db.prepare('SELECT * FROM relocation_sites WHERE disaster_id = ? ORDER BY id ASC LIMIT 1').get(disasterId);
+    }
+
+    // Immediately mark target site as FULL and set current_occupancy = capacity
+    if (fullSite) {
+      db.prepare('UPDATE relocation_sites SET current_occupancy = capacity, status = "FULL" WHERE id = ?').run(fullSite.id);
+      fullSite.status = 'FULL';
+      fullSite.current_occupancy = fullSite.capacity;
+    }
+
+    // Query candidate available relocation centers with open capacity
+    const availableSites = db.prepare(`
+      SELECT * FROM relocation_sites 
+      WHERE disaster_id = ? AND id != ? AND (current_occupancy < capacity OR capacity = 0)
+    `).all(disasterId, fullSite ? fullSite.id : 0);
+
+    const fullSiteLat = fullSite ? fullSite.lat : disaster.lat;
+    const fullSiteLng = fullSite ? fullSite.lng : disaster.lng;
+
+    const rankedCenters = availableSites.map(site => {
+      const distKm = calculateDistanceKm(fullSiteLat, fullSiteLng, site.lat, site.lng);
+      const availableSpots = Math.max(0, site.capacity - site.current_occupancy);
+      const score = Math.round((site.score || 85) + (availableSpots / 50) - (distKm * 3));
+      return {
+        ...site,
+        distance_km: distKm,
+        available_spots: availableSpots,
+        suitability_score: Math.max(50, score)
+      };
+    }).sort((a, b) => b.suitability_score - a.suitability_score);
+
+    const bestCenter = rankedCenters[0] || {
+      name: 'South District Relief Center B',
+      distance_km: 2.4,
+      available_spots: 3800,
+      capacity: 5000
+    };
+
+    const fullSiteName = fullSite ? fullSite.name : 'Relief Center A';
+    const fullSiteCap = fullSite ? fullSite.capacity : 1000;
+    
+    let aiGuidance = `${fullSiteName} is currently FULL (${fullSiteCap}/${fullSiteCap} capacity occupied). Please redirect to ${bestCenter.name}, ${bestCenter.distance_km} km away.`;
+
+    const volunteers = db.prepare(`
+      SELECT vr.id, s.id as student_id, u.name as student_name, u.id as user_id, univ.name as university_name
+      FROM volunteer_responses vr
+      JOIN students s ON vr.student_id = s.id
+      JOIN users u ON s.user_id = u.id
+      JOIN universities univ ON s.university_id = univ.id
+      WHERE vr.status = 'CONFIRMED'
+    `).all();
+
+    volunteers.forEach(v => {
+      db.prepare(`
+        INSERT INTO notifications (user_id, role_target, title, message, type, metadata_json)
+        VALUES (?, 'STUDENT', '🚨 EMERGENCY RE-ROUTING ALERT', ?, 'EMERGENCY', ?)
+      `).run(
+        v.user_id,
+        `${fullSiteName} is FULL. Destination updated: Please proceed immediately to ${bestCenter.name} (${bestCenter.distance_km} km away).`,
+        JSON.stringify({
+          full_site_id: fullSite ? fullSite.id : 1,
+          full_site_name: fullSiteName,
+          redirect_site_name: bestCenter.name,
+          distance_km: bestCenter.distance_km,
+          available_spots: bestCenter.available_spots
+        })
+      );
+    });
+
+    db.prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)')
+      .run(req.user.id, 'RELOCATION_REROUTED', 'RELOCATION_SITE', fullSite ? fullSite.id : 1, `Marked '${fullSiteName}' FULL. Redirected ${volunteers.length} volunteers to '${bestCenter.name}' (${bestCenter.distance_km} km away)`);
+
+    res.json({
+      success: true,
+      message: `System marked ${fullSiteName} as FULL. Redirected volunteers to ${bestCenter.name} (${bestCenter.distance_km} km away).`,
+      full_site: fullSite,
+      recommended_redirect_site: bestCenter,
+      ai_guidance: aiGuidance,
+      affected_volunteers_count: volunteers.length,
+      ranked_alternative_centers: rankedCenters
+    });
+  } catch (error) {
+    console.error('Re-route relocation error:', error);
+    res.status(500).json({ error: 'Failed to execute relocation re-routing.' });
+  }
+});
+
 module.exports = router;

@@ -127,6 +127,7 @@ export const api = {
   analyzeDisaster: (id) => request(`/disasters/${id}/analyze`, { method: 'POST' }),
   getRelocationEval: (id) => request(`/disasters/${id}/relocation-eval`),
   approveRelocationSite: (id, data) => request(`/disasters/${id}/relocation-approve`, { method: 'POST', body: JSON.stringify(data) }),
+  rerouteRelocation: (id, data) => request(`/disasters/${id}/re-route-relocation`, { method: 'POST', body: JSON.stringify(data || {}) }),
 
   // Hospitals
   getHospitals: () => request('/hospitals'),
