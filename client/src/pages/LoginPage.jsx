@@ -1,34 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import Navbar from '../components/Navbar';
 import SankalpLogo from '../components/SankalpLogo';
-import { Shield, GraduationCap, Building2, User, ArrowRight, Lock, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
-
+import { Shield, GraduationCap, Building2, User, Lock, AlertCircle, RefreshCw, LogIn } from 'lucide-react';
 
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const initialRole = searchParams.get('role')?.toUpperCase() || 'GOVERNMENT';
 
   const [selectedRole, setSelectedRole] = useState(initialRole);
-  const [email, setEmail] = useState(
-    initialRole === 'PROBLEM_OWNER' ? 'owner@solvelink.demo' :
-    initialRole === 'UNIVERSITY_ADMIN' ? 'university@solvelink.demo' :
-    initialRole === 'STUDENT' ? 'student@solvelink.demo' : 'government@solvelink.demo'
-  );
-  const [password, setPassword] = useState('Demo@123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Background ping on mount to wake up Render container if cold
   useEffect(() => {
-    api.healthCheck().catch(() => {
-      // Safe background warm-up attempt, ignore errors
-    });
+    api.healthCheck().catch(() => {});
   }, []);
 
   function redirectRole(role) {
@@ -39,32 +31,12 @@ export default function LoginPage() {
     else navigate('/dashboard/government');
   }
 
-  function handleSelectAuthority(roleKey, defaultEmail) {
-    setSelectedRole(roleKey);
-    setEmail(defaultEmail);
-    setError('');
-  }
-
-  async function handleQuickLogin(targetEmail, targetRole) {
-    setSelectedRole(targetRole);
-    setEmail(targetEmail);
-    setPassword('Demo@123');
-    setLoading(true);
-    setError('');
-
-    try {
-      const loggedUser = await login(targetEmail, 'Demo@123');
-      redirectRole(loggedUser.role);
-    } catch (err) {
-      console.error('Quick login error:', err);
-      setError(err.message || 'Unable to sign in. Please check your email and password.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!email || !password) {
+      setError('Please enter your email and password.');
+      return;
+    }
     setLoading(true);
     setError('');
 
@@ -79,15 +51,14 @@ export default function LoginPage() {
     }
   }
 
-
   return (
     <div style={{ backgroundColor: 'var(--bg-main)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
       <main className="container" style={{ padding: '40px 24px 64px', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
         
-        {/* SANKALP AI Hero & Title Header */}
-        <div style={{ textAlign: 'center', marginBottom: '36px', maxWidth: '700px' }}>
+        {/* SANKALP AI Branding Header */}
+        <div style={{ textAlign: 'center', marginBottom: '32px', maxWidth: '700px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
             <SankalpLogo variant="full" height={54} to="/" />
             <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--navy)', letterSpacing: '0.1em', marginTop: '6px' }}>
@@ -99,247 +70,107 @@ export default function LoginPage() {
           </div>
 
           <p style={{ fontSize: '15px', color: 'var(--text-muted)' }}>
-            Choose your authority to continue to your workspace
+            Sign in to access your SANKALP workspace
           </p>
         </div>
 
-
-        {/* THREE PRIMARY AUTHORITY CARDS GRID */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', width: '100%', maxWidth: '1100px', marginBottom: '40px' }}>
-          
-          {/* 1. Government Authority Card */}
-          <div
-            onClick={() => handleSelectAuthority('GOVERNMENT', 'government@solvelink.demo')}
-            className="card"
+        {/* Role Selector Tabs */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', width: '100%', maxWidth: '600px', marginBottom: '24px' }}>
+          <button
+            type="button"
+            onClick={() => setSelectedRole('GOVERNMENT')}
             style={{
-              padding: '24px',
+              padding: '12px 8px',
+              borderRadius: '8px',
               border: selectedRole === 'GOVERNMENT' ? '2px solid var(--navy)' : '1px solid var(--border-light)',
               backgroundColor: selectedRole === 'GOVERNMENT' ? '#ffffff' : 'var(--bg-card)',
-              boxShadow: selectedRole === 'GOVERNMENT' ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-              borderRadius: 'var(--radius-lg)',
+              color: selectedRole === 'GOVERNMENT' ? 'var(--navy)' : 'var(--text-medium)',
+              fontWeight: 700,
+              fontSize: '12px',
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
-              justify: 'space-between',
-              transition: 'all 0.15s ease'
+              alignItems: 'center',
+              gap: '4px'
             }}
           >
-            <div>
-              <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '12px',
-                backgroundColor: 'var(--navy)',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justify: 'center',
-                marginBottom: '16px'
-              }}>
-                <Shield size={24} />
-              </div>
-
-              <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--navy)', marginBottom: '8px' }}>
-                Government Authority
-              </h3>
-
-              <p style={{ fontSize: '14px', color: 'var(--text-medium)', lineHeight: 1.5, marginBottom: '20px' }}>
-                Coordinate disasters, validate problems, manage emergency response and monitor impact.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); handleQuickLogin('government@solvelink.demo', 'GOVERNMENT'); }}
-              className={`btn ${selectedRole === 'GOVERNMENT' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ width: '100%', justifyContent: 'center', gap: '6px' }}
-            >
-              Continue as Government <ArrowRight size={15} />
-            </button>
-          </div>
-
-          {/* 2. Problem Owner Card */}
-          <div
-            onClick={() => handleSelectAuthority('PROBLEM_OWNER', 'owner@solvelink.demo')}
-            className="card"
-            style={{
-              padding: '24px',
-              border: selectedRole === 'PROBLEM_OWNER' ? '2px solid var(--terracotta)' : '1px solid var(--border-light)',
-              backgroundColor: selectedRole === 'PROBLEM_OWNER' ? '#ffffff' : 'var(--bg-card)',
-              boxShadow: selectedRole === 'PROBLEM_OWNER' ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-              borderRadius: 'var(--radius-lg)',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              justify: 'space-between',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <div>
-              <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '12px',
-                backgroundColor: 'var(--terracotta-soft)',
-                color: 'var(--terracotta)',
-                display: 'flex',
-                alignItems: 'center',
-                justify: 'center',
-                marginBottom: '16px'
-              }}>
-                <Building2 size={24} />
-              </div>
-
-              <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--navy)', marginBottom: '8px' }}>
-                Problem Owner
-              </h3>
-
-              <p style={{ fontSize: '14px', color: 'var(--text-medium)', lineHeight: 1.5, marginBottom: '20px' }}>
-                Hospitals, schools, NGOs, companies and local authorities can submit and track problems.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); handleQuickLogin('owner@solvelink.demo', 'PROBLEM_OWNER'); }}
-              className={`btn ${selectedRole === 'PROBLEM_OWNER' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ width: '100%', justifyContent: 'center', gap: '6px' }}
-            >
-              Continue as Problem Owner <ArrowRight size={15} />
-            </button>
-          </div>
-
-          {/* 3. University Authority Card */}
-          <div
-            onClick={() => handleSelectAuthority('UNIVERSITY_ADMIN', 'university@solvelink.demo')}
-            className="card"
-            style={{
-              padding: '24px',
-              border: selectedRole === 'UNIVERSITY_ADMIN' ? '2px solid #2F9E63' : '1px solid var(--border-light)',
-              backgroundColor: selectedRole === 'UNIVERSITY_ADMIN' ? '#ffffff' : 'var(--bg-card)',
-              boxShadow: selectedRole === 'UNIVERSITY_ADMIN' ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-              borderRadius: 'var(--radius-lg)',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              justify: 'space-between',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <div>
-              <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '12px',
-                backgroundColor: '#E8F7EC',
-                color: '#2F9E63',
-                display: 'flex',
-                alignItems: 'center',
-                justify: 'center',
-                marginBottom: '16px'
-              }}>
-                <GraduationCap size={24} />
-              </div>
-
-              <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--navy)', marginBottom: '8px' }}>
-                University Authority
-              </h3>
-
-              <p style={{ fontSize: '14px', color: 'var(--text-medium)', lineHeight: 1.5, marginBottom: '20px' }}>
-                Discover challenges, accept problems, build student teams and submit solutions.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); handleQuickLogin('university@solvelink.demo', 'UNIVERSITY_ADMIN'); }}
-              className={`btn ${selectedRole === 'UNIVERSITY_ADMIN' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ width: '100%', justifyContent: 'center', gap: '6px' }}
-            >
-              Continue as University <ArrowRight size={15} />
-            </button>
-          </div>
-
-        </div>
-
-        {/* SUBORDINATE USER: UNIVERSITY INTEGRATED STUDENT ACCESS */}
-        <div style={{
-          width: '100%',
-          maxWidth: '1100px',
-          backgroundColor: '#ffffff',
-          border: '1px solid var(--border-light)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '24px 28px',
-          marginBottom: '40px',
-          display: 'flex',
-          justify: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '20px'
-        }}>
-          <div style={{ flex: 1, minWidth: '280px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <span className="badge badge-navy" style={{ fontSize: '11px' }}>
-                UNIVERSITY-INTEGRATED ACCESS
-              </span>
-              <span className="metadata-text">Subordinate User</span>
-            </div>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--navy)', marginBottom: '6px' }}>
-              University Integrated Student Access
-            </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-              Students access SANKALP AI through their university's integrated application to view eligible challenges, submit solution ideas, receive disaster alerts, and accept emergency missions.
-            </p>
-          </div>
+            <Shield size={18} /> Government
+          </button>
 
           <button
-            onClick={() => handleQuickLogin('student@solvelink.demo', 'STUDENT')}
-            className="btn btn-secondary"
-            style={{ gap: '8px', fontSize: '13px', padding: '10px 18px' }}
+            type="button"
+            onClick={() => setSelectedRole('PROBLEM_OWNER')}
+            style={{
+              padding: '12px 8px',
+              borderRadius: '8px',
+              border: selectedRole === 'PROBLEM_OWNER' ? '2px solid var(--terracotta)' : '1px solid var(--border-light)',
+              backgroundColor: selectedRole === 'PROBLEM_OWNER' ? '#ffffff' : 'var(--bg-card)',
+              color: selectedRole === 'PROBLEM_OWNER' ? 'var(--terracotta)' : 'var(--text-medium)',
+              fontWeight: 700,
+              fontSize: '12px',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '4px'
+            }}
           >
-            <User size={15} color="var(--terracotta)" />
-            Continue as Student <ArrowRight size={14} />
+            <Building2 size={18} /> Problem Owner
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedRole('UNIVERSITY_ADMIN')}
+            style={{
+              padding: '12px 8px',
+              borderRadius: '8px',
+              border: selectedRole === 'UNIVERSITY_ADMIN' ? '2px solid #2F9E63' : '1px solid var(--border-light)',
+              backgroundColor: selectedRole === 'UNIVERSITY_ADMIN' ? '#ffffff' : 'var(--bg-card)',
+              color: selectedRole === 'UNIVERSITY_ADMIN' ? '#2F9E63' : 'var(--text-medium)',
+              fontWeight: 700,
+              fontSize: '12px',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <GraduationCap size={18} /> University
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedRole('STUDENT')}
+            style={{
+              padding: '12px 8px',
+              borderRadius: '8px',
+              border: selectedRole === 'STUDENT' ? '2px solid var(--primary-blue)' : '1px solid var(--border-light)',
+              backgroundColor: selectedRole === 'STUDENT' ? '#ffffff' : 'var(--bg-card)',
+              color: selectedRole === 'STUDENT' ? 'var(--primary-blue)' : 'var(--text-medium)',
+              fontWeight: 700,
+              fontSize: '12px',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <User size={18} /> Student
           </button>
         </div>
 
-        {/* MANUAL AUTHENTICATION FORM CARD */}
-        <div className="card" style={{ width: '100%', maxWidth: '480px', padding: '28px', backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)' }}>
+        {/* REAL AUTHENTICATION FORM CARD */}
+        <div className="card" style={{ width: '100%', maxWidth: '460px', padding: '32px', backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)' }}>
           
-          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-            <span className="badge badge-primary" style={{ marginBottom: '8px' }}>
-              AUTHENTICATE CREDENTIALS
-            </span>
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
             <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--navy)' }}>
-              Sign In to {selectedRole === 'GOVERNMENT' ? 'Government Authority' : selectedRole === 'PROBLEM_OWNER' ? 'Problem Owner Portal' : selectedRole === 'UNIVERSITY_ADMIN' ? 'University Authority' : 'Student App'}
+              Sign In to {selectedRole === 'GOVERNMENT' ? 'Government Workspace' : selectedRole === 'PROBLEM_OWNER' ? 'Problem Owner Portal' : selectedRole === 'UNIVERSITY_ADMIN' ? 'University Portal' : 'Student Portal'}
             </h2>
-          </div>
-
-          {/* Quick Demo Pre-fill Shortcuts */}
-          <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => handleSelectAuthority('GOVERNMENT', 'government@solvelink.demo')}
-              className={`btn btn-sm ${selectedRole === 'GOVERNMENT' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '11px', padding: '4px 8px' }}
-            >
-              Gov Demo
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSelectAuthority('PROBLEM_OWNER', 'owner@solvelink.demo')}
-              className={`btn btn-sm ${selectedRole === 'PROBLEM_OWNER' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '11px', padding: '4px 8px' }}
-            >
-              Owner Demo
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSelectAuthority('UNIVERSITY_ADMIN', 'university@solvelink.demo')}
-              className={`btn btn-sm ${selectedRole === 'UNIVERSITY_ADMIN' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '11px', padding: '4px 8px' }}
-            >
-              Univ Demo
-            </button>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Enter your account credentials to log in
+            </p>
           </div>
 
           {error && (
@@ -348,7 +179,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-dark)', marginBottom: '6px' }}>
                 Email Address
@@ -358,8 +189,8 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@authority.gov"
-                style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '14px', boxSizing: 'border-box' }}
+                placeholder="e.g. name@authority.gov or user@institution.edu"
+                style={{ width: '100%', padding: '11px 14px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '14px', boxSizing: 'border-box' }}
               />
             </div>
 
@@ -372,8 +203,8 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '14px', boxSizing: 'border-box' }}
+                placeholder="Enter your password"
+                style={{ width: '100%', padding: '11px 14px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '14px', boxSizing: 'border-box' }}
               />
             </div>
 
@@ -381,19 +212,26 @@ export default function LoginPage() {
               type="submit"
               disabled={loading}
               className="btn btn-primary"
-              style={{ width: '100%', padding: '12px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, marginTop: '8px' }}
+              style={{ width: '100%', padding: '12px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, marginTop: '6px', justifyContent: 'center' }}
             >
               {loading ? (
                 <>
-                  <RefreshCw size={16} className="spin" /> Signing in...
+                  <RefreshCw size={16} className="spin" /> Verifying Credentials...
                 </>
               ) : (
                 <>
-                  <Lock size={15} /> Sign In to Workspace
+                  <LogIn size={16} /> Sign In
                 </>
               )}
             </button>
           </form>
+
+          <div style={{ textAlign: 'center', marginTop: '24px', paddingTop: '18px', borderTop: '1px solid var(--border-light)', fontSize: '13px', color: 'var(--text-muted)' }}>
+            Don't have an account?{' '}
+            <Link to="/register" style={{ color: 'var(--primary-blue)', fontWeight: 700, textDecoration: 'none' }}>
+              Create Account
+            </Link>
+          </div>
 
         </div>
 

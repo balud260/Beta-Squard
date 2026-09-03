@@ -117,10 +117,10 @@ function handleDeterministicFactualQuery(queryText, role, user) {
   // 3. Unfilled requirements
   if (q.includes('requirement') || q.includes('unfilled') || q.includes('volunteer') || q.includes('responder')) {
     const unfilled = db.prepare(`
-      SELECT dr.role_needed, dr.required_count, dr.location,
-             (SELECT count(*) FROM volunteer_responses vr WHERE vr.requirement_id = dr.id AND vr.status = 'CONFIRMED') as confirmed_count
+      SELECT dr.role_type, dr.required_count, dr.fulfilled_count, d.location
       FROM disaster_requirements dr
-      WHERE (SELECT count(*) FROM volunteer_responses vr WHERE vr.requirement_id = dr.id AND vr.status = 'CONFIRMED') < dr.required_count
+      JOIN disasters d ON dr.disaster_id = d.id
+      WHERE dr.fulfilled_count < dr.required_count
     `).all();
 
     if (unfilled.length === 0) {
@@ -131,7 +131,7 @@ function handleDeterministicFactualQuery(queryText, role, user) {
       };
     }
 
-    const items = unfilled.map(u => `${u.role_needed} at ${u.location}: ${u.required_count - u.confirmed_count} responders still needed (${u.confirmed_count}/${u.required_count} confirmed)`);
+    const items = unfilled.map(u => `${u.role_type} at ${u.location}: ${u.required_count - u.fulfilled_count} responders still needed (${u.fulfilled_count}/${u.required_count} confirmed)`);
     if (items.length === 1) {
       return {
         answer: `1 emergency response requirement remains unfilled: ${items[0]}.`,

@@ -79,6 +79,7 @@ export const api = {
 
   // Auth
   login: (credentials) => request('/auth/login', { method: 'POST', body: JSON.stringify(credentials), timeoutMs: 25000 }),
+  register: (data) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   registerGovernment: (data) => request('/auth/register-government', { method: 'POST', body: JSON.stringify(data) }),
   registerUniversity: (data) => request('/auth/register-university', { method: 'POST', body: JSON.stringify(data) }),
   getMe: () => request('/auth/me'),

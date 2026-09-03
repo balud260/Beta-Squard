@@ -64,10 +64,13 @@ router.get('/my-proposals', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN'
  */
 router.post('/', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN', 'FACULTY'), (req, res) => {
   try {
-    const { problem_id, summary, approach, team_structure, cost, timeline } = req.body;
+    const { problem_id, summary, approach, technical_approach, team_structure, cost, estimated_budget, timeline, implementation_timeline } = req.body;
     const university_id = req.user.university_id || 1;
+    const actualApproach = approach || technical_approach || '';
+    const actualCost = cost || estimated_budget || 200000;
+    const actualTimeline = timeline || implementation_timeline || '3 Months';
 
-    if (!problem_id || !summary || !approach) {
+    if (!problem_id || !summary || !actualApproach) {
       return res.status(400).json({ error: 'Problem ID, summary, and technical approach are required.' });
     }
 
@@ -76,7 +79,7 @@ router.post('/', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN', 'FACULTY'
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'SUBMITTED', 1)
     `);
 
-    const result = stmt.run(problem_id, university_id, req.user.id, summary, approach, team_structure || '', cost || 200000, timeline || '3 Months');
+    const result = stmt.run(problem_id, university_id, req.user.id, summary, actualApproach, team_structure || '', actualCost, actualTimeline);
     const proposalId = result.lastInsertRowid;
 
     // Record in version history
@@ -118,7 +121,8 @@ router.post('/', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN', 'FACULTY'
 
     res.status(201).json({
       message: 'Proposal submitted successfully.',
-      proposalId
+      proposalId,
+      proposal_id: proposalId
     });
   } catch (error) {
     console.error('Submit proposal error:', error);

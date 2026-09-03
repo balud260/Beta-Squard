@@ -62,13 +62,13 @@ INSERT INTO hospitals (id, name, location, lat, lng, total_beds, available_beds,
 
 -- 5. Insert Users (Strictly Three Primary Authorities + Integrated Student)
 INSERT INTO users (id, name, email, password_hash, role, organization_id, university_id, hospital_id, phone, status) VALUES
-(1, 'Commander Rajesh Sharma (Government)', 'government@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'GOVERNMENT', 2, NULL, NULL, '+91 98765 00001', 'ACTIVE'),
-(2, 'Dr. Sunita Deshmukh (Hospital Owner)', 'owner@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'PROBLEM_OWNER', 1, NULL, NULL, '+91 98765 00002', 'ACTIVE'),
-(3, 'Prof. Arvind Kulkarni (University)', 'university@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'UNIVERSITY_ADMIN', NULL, 1, NULL, '+91 98765 00003', 'ACTIVE'),
-(4, 'Aarav Mehta (Integrated Student)', 'student@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'STUDENT', NULL, 1, NULL, '+91 98765 00004', 'ACTIVE'),
-(5, 'Dr. Ananya Sen (NGO Problem Owner)', 'owner2@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'PROBLEM_OWNER', 5, NULL, NULL, '+91 98765 00005', 'ACTIVE'),
-(6, 'Priya Nair (Faculty)', 'faculty@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'FACULTY', NULL, 1, NULL, '+91 98765 00006', 'ACTIVE'),
-(7, 'Dr. Vikram Seth (Hospital Admin)', 'hospital@solvelink.demo', '$2a$10$w09ZkE1h/0G9F6yXg.KkTe2O9R1t9.TjV2Y5K8mR7O.wZ0F9zX8bO', 'HOSPITAL_ADMIN', NULL, NULL, 1, '+91 98765 00007', 'ACTIVE');
+(1, 'Commander Rajesh Sharma (Government)', 'government@solvelink.demo', '$2a$10$JfToDrgjD8ktr2tj.hAW/uJqLlQwaqDVg9yMDIKA715Pi5MADBNmi', 'GOVERNMENT', 2, NULL, NULL, '+91 98765 00001', 'ACTIVE'),
+(2, 'Dr. Sunita Deshmukh (Hospital Owner)', 'owner@solvelink.demo', '$2a$10$JfToDrgjD8ktr2tj.hAW/uJqLlQwaqDVg9yMDIKA715Pi5MADBNmi', 'PROBLEM_OWNER', 1, NULL, NULL, '+91 98765 00002', 'ACTIVE'),
+(3, 'Prof. Arvind Kulkarni (University)', 'university@solvelink.demo', '$2a$10$JfToDrgjD8ktr2tj.hAW/uJqLlQwaqDVg9yMDIKA715Pi5MADBNmi', 'UNIVERSITY_ADMIN', NULL, 1, NULL, '+91 98765 00003', 'ACTIVE'),
+(4, 'Aarav Mehta (Integrated Student)', 'student@solvelink.demo', '$2a$10$JfToDrgjD8ktr2tj.hAW/uJqLlQwaqDVg9yMDIKA715Pi5MADBNmi', 'STUDENT', NULL, 1, NULL, '+91 98765 00004', 'ACTIVE'),
+(5, 'Dr. Ananya Sen (NGO Problem Owner)', 'owner2@solvelink.demo', '$2a$10$JfToDrgjD8ktr2tj.hAW/uJqLlQwaqDVg9yMDIKA715Pi5MADBNmi', 'PROBLEM_OWNER', 5, NULL, NULL, '+91 98765 00005', 'ACTIVE'),
+(6, 'Priya Nair (Faculty)', 'faculty@solvelink.demo', '$2a$10$JfToDrgjD8ktr2tj.hAW/uJqLlQwaqDVg9yMDIKA715Pi5MADBNmi', 'FACULTY', NULL, 1, NULL, '+91 98765 00006', 'ACTIVE'),
+(7, 'Dr. Vikram Seth (Hospital Admin)', 'hospital@solvelink.demo', '$2a$10$JfToDrgjD8ktr2tj.hAW/uJqLlQwaqDVg9yMDIKA715Pi5MADBNmi', 'HOSPITAL_ADMIN', NULL, NULL, 1, '+91 98765 00007', 'ACTIVE');
 
 -- 6. Insert Student Record
 INSERT INTO students (id, user_id, university_id, department_id, roll_number, skills_json, nss_member, ncc_member, availability_status) VALUES

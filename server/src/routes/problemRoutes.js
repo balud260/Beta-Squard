@@ -352,6 +352,7 @@ router.post('/', authenticateToken, authorizeRoles('PROBLEM_OWNER', 'GOVERNMENT'
     res.status(201).json({
       message: 'Challenge submitted successfully and published to University Portal.',
       problemId,
+      problem_id: problemId,
       status: 'PUBLISHED',
       analysis: aiResult
     });

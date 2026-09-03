@@ -6,9 +6,9 @@ const db = require('../config/db');
 const { authenticateToken, JWT_SECRET } = require('../middleware/auth');
 
 /**
- * POST /api/auth/login
+ * POST /api/auth/login - Real Backend Authentication via bcrypt
  */
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -17,31 +17,17 @@ router.post('/login', (req, res) => {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    console.log(`[AUTH] Login request received for email: ${cleanEmail}`);
-    console.log(`[AUTH] Database lookup started`);
-
     const user = db.prepare("SELECT * FROM users WHERE LOWER(email) = ? AND status = 'ACTIVE'").get(cleanEmail);
-    console.log(`[AUTH] User lookup completed (found: ${Boolean(user)})`);
 
     if (!user) {
-      console.warn(`[AUTH] User not found or inactive for email: ${cleanEmail}`);
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
-    // Check demo password directly or via bcrypt
-    let isMatch = false;
-    if (password === 'Demo@123') {
-      isMatch = true;
-    } else {
-      isMatch = bcrypt.compareSync(password, user.password_hash);
-    }
-
+    // Verify hashed password securely using bcrypt
+    const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      console.warn(`[AUTH] Password mismatch for user ID: ${user.id}`);
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
-
-    console.log(`[AUTH] Credentials verified for user ID: ${user.id}`);
 
     // Attach role-specific metadata
     let orgDetails = null;
@@ -69,7 +55,6 @@ router.post('/login', (req, res) => {
     };
 
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '24h' });
-    console.log(`[AUTH] Token generated, sending HTTP 200 response`);
 
     res.json({
       message: 'Login successful',
@@ -92,14 +77,14 @@ router.post('/login', (req, res) => {
 });
 
 /**
- * GET /api/auth/me
+ * GET /api/auth/me - Persistent Token Session Verification
  */
 router.get('/me', authenticateToken, (req, res) => {
   try {
     const user = db.prepare('SELECT id, name, email, role, phone, organization_id, university_id, hospital_id FROM users WHERE id = ?').get(req.user.id);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found.' });
+      return res.status(404).json({ error: 'User profile not found.' });
     }
 
     let orgDetails = null;
@@ -138,104 +123,112 @@ router.post('/logout', (req, res) => {
 });
 
 /**
- * POST /api/auth/register-government - Register a new Government Department
+ * POST /api/auth/register - Unified Real User Registration
  */
-router.post('/register-government', async (req, res) => {
+router.post('/register', async (req, res) => {
   try {
-    const { departmentName, officialName, email, phone, region, password } = req.body;
+    const { name, email, password, confirmPassword, role, organizationName, organizationType, phone, location } = req.body;
 
-    if (!departmentName || !email || !password) {
-      return res.status(400).json({ error: 'Department name, official email, and password are required.' });
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({ error: 'Name, email, password, and role are required.' });
     }
 
-    const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    }
+
+    if (confirmPassword && password !== confirmPassword) {
+      return res.status(400).json({ error: 'Password and confirm password do not match.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const existingUser = db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(cleanEmail);
     if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists.' });
+      return res.status(400).json({ error: 'An account with this email address already exists.' });
     }
-
-    // Create organization
-    const orgResult = db.prepare(`
-      INSERT INTO organizations (name, type, location, contact_email)
-      VALUES (?, 'GOVERNMENT', ?, ?)
-    `).run(departmentName, region || 'District HQ', email);
-    const orgId = orgResult.lastInsertRowid;
 
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(password, salt);
 
+    let orgId = null;
+    let univId = null;
+
+    if (role === 'GOVERNMENT') {
+      const orgResult = db.prepare(`
+        INSERT INTO organizations (name, type, location, contact_email)
+        VALUES (?, 'GOVERNMENT', ?, ?)
+      `).run(organizationName || `${name} Agency`, location || 'District HQ', cleanEmail);
+      orgId = orgResult.lastInsertRowid;
+    } else if (role === 'PROBLEM_OWNER') {
+      const orgResult = db.prepare(`
+        INSERT INTO organizations (name, type, location, contact_email)
+        VALUES (?, ?, ?, ?)
+      `).run(organizationName || `${name} Organization`, organizationType || 'COMMUNITY_ORG', location || 'District Area', cleanEmail);
+      orgId = orgResult.lastInsertRowid;
+    } else if (role === 'UNIVERSITY_ADMIN' || role === 'UNIVERSITY') {
+      const baseCode = (organizationName || name).split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 4) || 'UNIV';
+      const code = `${baseCode}${Math.floor(100 + Math.random() * 900)}`;
+      const univResult = db.prepare(`
+        INSERT INTO universities (name, code, location, lat, lng, total_students, research_focus, equipment_summary)
+        VALUES (?, ?, ?, 28.6139, 77.2090, 3000, 'AI, Civic Engineering & Public Health', 'IoT Labs, GIS Workstations')
+      `).run(organizationName || `${name} University`, code, location || 'Main Campus');
+      univId = univResult.lastInsertRowid;
+    } else if (role === 'STUDENT') {
+      univId = 1; // Default to primary university if not specified
+    }
+
+    const assignedRole = role === 'UNIVERSITY' ? 'UNIVERSITY_ADMIN' : role;
     const userResult = db.prepare(`
-      INSERT INTO users (name, email, password_hash, role, organization_id, phone, status)
-      VALUES (?, ?, ?, 'GOVERNMENT', ?, ?, 'ACTIVE')
-    `).run(officialName || departmentName, email, hash, orgId, phone || '');
+      INSERT INTO users (name, email, password_hash, role, organization_id, university_id, phone, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
+    `).run(name, cleanEmail, hash, assignedRole, orgId, univId, phone || '');
 
     const userId = userResult.lastInsertRowid;
 
+    if (assignedRole === 'STUDENT') {
+      try {
+        db.prepare(`
+          INSERT INTO students (user_id, university_id, department_id, roll_number, skills_json, availability_status)
+          VALUES (?, ?, 1, ?, '["General Support", "AI/ML", "React"]', 'AVAILABLE')
+        `).run(userId, univId || 1, `STU-${userId}`);
+      } catch (e) {}
+    }
+
     const token = jwt.sign(
-      { id: userId, email, role: 'GOVERNMENT', organization_id: orgId },
+      { id: userId, email: cleanEmail, name, role: assignedRole, organization_id: orgId, university_id: univId },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
 
     res.status(201).json({
-      message: 'Government Authority registered successfully.',
+      message: 'Account registered successfully.',
       token,
-      user: { id: userId, name: officialName, email, role: 'GOVERNMENT', organization_id: orgId }
+      user: { id: userId, name, email: cleanEmail, role: assignedRole, organization_id: orgId, university_id: univId }
     });
   } catch (error) {
-    console.error('Register government error:', error);
-    res.status(500).json({ error: 'Government registration failed.' });
+    console.error('[AUTH] Registration error:', error);
+    res.status(500).json({ error: 'Failed to complete user registration.' });
   }
 });
 
 /**
- * POST /api/auth/register-university - Register a new University Institution
+ * POST /api/auth/register-government
+ */
+router.post('/register-government', async (req, res) => {
+  req.body.role = 'GOVERNMENT';
+  req.body.name = req.body.officialName || req.body.departmentName;
+  req.body.organizationName = req.body.departmentName;
+  router.handle({ ...req, url: '/register', method: 'POST' }, res);
+});
+
+/**
+ * POST /api/auth/register-university
  */
 router.post('/register-university', async (req, res) => {
-  try {
-    const { universityName, adminName, email, phone, location, universityType, password } = req.body;
-
-    if (!universityName || !email || !password) {
-      return res.status(400).json({ error: 'University name, email, and password are required.' });
-    }
-
-    const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-    if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists.' });
-    }
-
-    // Create University Record
-    const code = universityName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 5);
-    const univResult = db.prepare(`
-      INSERT INTO universities (name, code, location, lat, lng, total_students, nss_capacity, ncc_capacity, research_focus, equipment_summary)
-      VALUES (?, ?, ?, 28.6139, 77.2090, 3500, 300, 150, 'AI/ML, IoT, Civic Engineering', 'High-res Drones, IoT Labs, GIS Servers')
-    `).run(universityName, code, location || 'State Campus');
-    const univId = univResult.lastInsertRowid;
-
-    const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash(password, salt);
-
-    const userResult = db.prepare(`
-      INSERT INTO users (name, email, password_hash, role, university_id, phone, status)
-      VALUES (?, ?, ?, 'UNIVERSITY_ADMIN', ?, ?, 'ACTIVE')
-    `).run(adminName || universityName, email, hash, univId, phone || '');
-
-    const userId = userResult.lastInsertRowid;
-
-    const token = jwt.sign(
-      { id: userId, email, role: 'UNIVERSITY_ADMIN', university_id: univId },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    res.status(201).json({
-      message: 'University Authority registered successfully.',
-      token,
-      user: { id: userId, name: adminName, email, role: 'UNIVERSITY_ADMIN', university_id: univId }
-    });
-  } catch (error) {
-    console.error('Register university error:', error);
-    res.status(500).json({ error: 'University registration failed.' });
-  }
+  req.body.role = 'UNIVERSITY_ADMIN';
+  req.body.name = req.body.adminName || req.body.universityName;
+  req.body.organizationName = req.body.universityName;
+  router.handle({ ...req, url: '/register', method: 'POST' }, res);
 });
 
 module.exports = router;
