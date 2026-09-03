@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../config/db');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { analyzeDisasterIncident, evaluateRelocationSites } = require('../services/aiService');
+const { getCachedAI, setCachedAI, getCacheKey } = require('../services/aiCache');
 
 // Haversine distance calculator in km
 function calculateDistanceKm(lat1, lon1, lat2, lon2) {

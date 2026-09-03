@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../config/db');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { analyzeProblem, matchUniversities } = require('../services/aiService');
+const { getCachedAI, setCachedAI, getCacheKey } = require('../services/aiCache');
 
 /**
  * GET /api/problems - List problems based on role & privacy rules
@@ -682,6 +683,12 @@ router.get('/:id', authenticateToken, (req, res) => {
 router.post('/:id/analyze', authenticateToken, async (req, res) => {
   try {
     const problemId = req.params.id;
+    const cacheKey = getCacheKey('problem_analysis', problemId);
+    const cached = getCachedAI(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const problem = db.prepare('SELECT * FROM problems WHERE id = ?').get(problemId);
 
     if (!problem) {
@@ -690,10 +697,13 @@ router.post('/:id/analyze', authenticateToken, async (req, res) => {
 
     const aiResult = await analyzeProblem(problem);
 
-    res.json({
+    const responseData = {
       message: 'AI Problem Analysis completed.',
       analysis: aiResult
-    });
+    };
+
+    setCachedAI(cacheKey, responseData);
+    res.json(responseData);
   } catch (error) {
     console.error('AI Problem Analysis error:', error.message);
     res.status(500).json({ error: 'AI Problem Analysis failed.', details: error.message });
