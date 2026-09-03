@@ -113,7 +113,7 @@ export default function AIResultPanel({
 
           {fallbackResult && (
             <button onClick={() => setShowFallback(true)} className="btn btn-secondary btn-sm" style={{ backgroundColor: '#ffffff' }}>
-              View Database Assessment
+              View Operational Assessment
             </button>
           )}
         </div>
@@ -145,7 +145,7 @@ export default function AIResultPanel({
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
             <span className={`badge ${isFallbackActive ? 'badge-warning' : 'badge-primary'}`} style={{ gap: '4px' }}>
-              <Sparkles size={13} /> {isFallbackActive ? 'FALLBACK DATABASE ASSESSMENT' : 'SANKALP AI GENERATED'}
+              <Sparkles size={13} /> {isFallbackActive ? 'OFFICIAL PLATFORM ASSESSMENT' : 'SANKALP AI GENERATED'}
             </span>
             {d.difficulty && (
               <span className="badge badge-navy" style={{ fontSize: '11px' }}>

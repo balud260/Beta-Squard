@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
-import { Bot, Send, X, Sparkles, Database, RefreshCw, Shield, AlertCircle } from 'lucide-react';
+import { Bot, Send, X, Sparkles, CheckCircle2, RefreshCw, Shield, AlertCircle } from 'lucide-react';
 
 export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 1 }) {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState([
     {
       sender: 'ai',
-      text: 'Hello Commander. I am SANKALP AI Command Assistant. I am grounded on real-time database state across District X active disasters, hospital capacities, university volunteers, and submitted proposals. How can I assist your command decisions today?',
+      text: 'Hello Commander. I am SANKALP AI Command Assistant. I am grounded in current SANKALP platform data across District X active disasters, hospital capacities, university volunteers, and submitted proposals. How can I assist your command decisions today?',
       grounded: true
     }
   ]);
@@ -95,7 +95,7 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
                   Government AI Command Assistant
                 </h3>
                 <div style={{ fontSize: '0.75rem', color: 'var(--status-success)', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600, marginTop: '2px' }}>
-                  <Database size={13} /> Grounded on Live SQLite Database State
+                  <CheckCircle2 size={13} /> Grounded in Current SANKALP Data
                 </div>
               </div>
             </div>
@@ -164,7 +164,7 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
               {m.text}
               {m.grounded && (
                 <div style={{ fontSize: '0.7rem', color: m.sender === 'user' ? 'rgba(255,255,255,0.7)' : 'var(--status-success)', marginTop: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Database size={10} /> Verified Application Context Used
+                  <CheckCircle2 size={10} /> Grounded in Current SANKALP Data
                 </div>
               )}
             </div>
@@ -172,7 +172,7 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
 
           {loading && (
             <div style={{ alignSelf: 'flex-start', backgroundColor: '#ffffff', border: '1px solid var(--border-light)', padding: '0.85rem 1.1rem', borderRadius: '14px', fontSize: '0.85rem', color: 'var(--navy)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <RefreshCw size={14} className="spin" /> Analyzing command against platform database...
+              <RefreshCw size={14} className="spin" /> Analyzing command against current platform data...
             </div>
           )}
 

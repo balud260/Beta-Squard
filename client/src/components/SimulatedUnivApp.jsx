@@ -204,7 +204,7 @@ export default function SimulatedUnivApp({ isOpen, onClose, onResponseRecorded }
           )}
 
           <div style={{ marginTop: '1rem', fontSize: '0.725rem', color: '#BFDFCC', textAlign: 'center' }}>
-            Government Alert → University App → Live SQLite State
+            Government Alert → University App → Live SANKALP Data
           </div>
         </div>
 

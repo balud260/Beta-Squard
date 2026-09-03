@@ -255,7 +255,7 @@ export default function FloatingAIAssistant() {
 
             {loading && (
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12.5px', padding: '4px 8px' }}>
-                <RefreshCw size={14} className="spin" /> Analyzing incident &amp; database state...
+                <RefreshCw size={14} className="spin" /> Analyzing incident &amp; current SANKALP data...
               </div>
             )}
 

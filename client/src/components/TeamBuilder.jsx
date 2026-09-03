@@ -149,7 +149,7 @@ export default function TeamBuilder({ universityName = 'NIT District X' }) {
       {/* Recommended Candidates */}
       {!isGisCovered && candidatePool.length > 0 && (
         <div>
-          <h4 style={{ fontSize: '0.9rem', color: 'var(--text-medium)', marginBottom: '0.75rem' }}>Recommended Available Candidates (From University Database)</h4>
+          <h4 style={{ fontSize: '0.9rem', color: 'var(--text-medium)', marginBottom: '0.75rem' }}>Recommended Available Candidates (From University Student Roster)</h4>
           <div className="grid grid-cols-2" style={{ gap: '10px' }}>
             {candidatePool.map((c, idx) => (
               <div key={idx} style={{

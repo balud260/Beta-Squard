@@ -164,7 +164,7 @@ Problem Requirements:
 Title: ${problem.title}
 Description: ${problem.description}
 
-Candidate Universities (Authorized Database Records):
+Candidate Universities (Authorized SANKALP Records):
 ${JSON.stringify(candidateUniversities, null, 2)}
 
 Return ONLY a JSON array of objects:
@@ -450,12 +450,13 @@ Return ONLY a JSON object:
 async function handleRoleAwareChatAI(userQuery, userRole, contextData, userName = '') {
   try {
     const prompt = `You are SANKALP AI Assistant serving an authenticated user named "${userName}" with role: ${userRole}.
-Respond concisely, professionally, and accurately using ONLY the provided verified database context below.
+Respond concisely, professionally, and accurately using ONLY the provided verified SANKALP platform data below.
+CRITICAL INSTRUCTION: You are an application assistant. Treat backend-provided application data as the authoritative source. Do NOT mention database technology, SQLite, SQL, internal storage terminology, API internals, or system architecture to the user unless explicitly asked.
 Do NOT invent fake numbers or external facts.
 
 If the user says a simple greeting like "hi", "hello", "who are you", or "what can you help me with", respond warmly and address them by name (e.g. "Hello ${userName || userRole}! How can I help with your ${userRole} operations today?").
 
-Authorized Database Context:
+Authorized Platform Data Context:
 ${JSON.stringify(contextData, null, 2)}
 
 User Question: "${userQuery}"
@@ -466,10 +467,10 @@ Provide a clear, helpful 2-4 sentence response tailored to the ${userRole} role.
     return { answer: text.trim(), reply: text.trim(), groundedDataUsed: true };
   } catch (err) {
     console.warn('[Gemini Service] Chat AI fallback engaged:', err.message);
-    let fallbackText = `Hello ${userName || userRole}! SANKALP AI is currently operating in offline fallback mode. Verified database context for ${userRole} is active and workspace state is synchronized.`;
+    let fallbackText = `Hello ${userName || userRole}! SANKALP AI is currently operating in offline mode. Verified platform data for ${userRole} is active and workspace state is synchronized.`;
     
     if (userRole === 'GOVERNMENT') {
-      fallbackText = `Commander ${userName || ''}: Active disaster response nodes, relocation site capacity, and university volunteer counts are operational in SQLite.`;
+      fallbackText = `Commander ${userName || ''}: Active disaster response nodes, relocation site capacity, and university volunteer counts are operational in live platform data.`;
     } else if (userRole === 'PROBLEM_OWNER') {
       fallbackText = `Problem Owner ${userName || ''}: Your submitted challenges and university responses are active in your portal.`;
     } else if (userRole === 'UNIVERSITY_ADMIN' || userRole === 'FACULTY') {

@@ -486,7 +486,7 @@ export default function GovernmentDashboard() {
                     Real-time student volunteer responses from National Institute of Technology (NIT) &amp; partner hubs.
                   </p>
                 </div>
-                <span className="badge badge-success">LIVE DATABASE FEED</span>
+                <span className="badge badge-success">LIVE OPERATIONAL FEED</span>
               </div>
 
               <div className="grid grid-cols-4" style={{ marginBottom: '1.25rem' }}>
@@ -524,7 +524,7 @@ export default function GovernmentDashboard() {
               {/* Requirement Fulfillment Breakdown */}
               <div style={{ backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '1rem' }}>
                 <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--navy)', marginBottom: '0.75rem' }}>
-                  Category Breakdown (Verified Database Records):
+                  Category Breakdown (Verified Response Data):
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>

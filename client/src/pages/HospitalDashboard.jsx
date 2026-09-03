@@ -37,7 +37,7 @@ export default function HospitalDashboard() {
         available_beds: availableBeds,
         status: status
       });
-      setMessage('Hospital bed capacity & operational status updated live in SQLite database.');
+      setMessage('Hospital bed capacity & operational status updated in live operational data.');
       setHospital(res.hospital);
     } catch (err) {
       setMessage('Failed to update status.');
