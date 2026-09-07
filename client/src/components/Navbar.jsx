@@ -77,7 +77,7 @@ export default function Navbar({ onOpenSimulatedApp }) {
             </>
           ) : user && user.role === 'GOVERNMENT' ? (
             <>
-              <Link to="/dashboard/government" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--terracotta)', whiteSpace: 'nowrap' }}>
+              <Link to="/dashboard/government?tab=disaster" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--terracotta)', whiteSpace: 'nowrap' }}>
                 Disaster Command Center
               </Link>
               <a href="#responsible" style={{ fontWeight: 500, fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
