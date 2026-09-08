@@ -127,6 +127,9 @@ export default function FloatingAIAssistant() {
         id: Date.now() + 1,
         sender: 'bot',
         text: res.answer || res.reply || 'Analysis complete.',
+        dataOrigin: res.dataOrigin,
+        sources: res.sources,
+        freshness: res.freshness,
         status: 'success'
       };
       setMessages((prev) => [...prev, botMsg]);
@@ -290,7 +293,22 @@ export default function FloatingAIAssistant() {
                   maxWidth: '88%',
                   lineHeight: 1.45
                 }}>
+                  {m.dataOrigin && (
+                    <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: m.dataOrigin.includes('LIVE') ? '#0284c7' : m.dataOrigin.includes('HYBRID') ? '#7c3aed' : 'var(--status-success)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {m.dataOrigin.includes('LIVE') ? '🌐 LIVE WEB' : m.dataOrigin.includes('HYBRID') ? '⚡ HYBRID INTELLIGENCE' : '📊 SANKALP DATA'} {m.freshness ? `• ${m.freshness}` : ''}
+                    </div>
+                  )}
                   {renderCleanMessageContent(m.text)}
+                  {m.sources && m.sources.length > 0 && (
+                    <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid var(--border-subtle)', fontSize: '11px', color: 'var(--text-muted)' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '3px' }}>Retrieved Sources:</div>
+                      {m.sources.map((s, sIdx) => (
+                        <div key={sIdx} style={{ marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          • <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--navy)', textDecoration: 'underline' }}>{s.source}: {s.title}</a>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {m.status === 'error' && lastFailedQuery && (
                     <div style={{ marginTop: '8px' }}>
                       <button

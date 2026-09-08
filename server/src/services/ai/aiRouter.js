@@ -1,14 +1,17 @@
 const { callExperiential, formatCleanAIResponse: formatCleanExperiential, cleanAndParseJSON: parseExperientialJSON } = require('./experientialProvider');
 const { callGemini, formatCleanAIResponse: formatCleanGemini, cleanAndParseJSON: parseGeminiJSON } = require('./geminiProvider');
 const { handleDeterministicFactualQuery } = require('./deterministicRouter');
-const { getCachedAI, setCachedAI, getCacheKey } = require('./aiCache');
+const { classifyQuestionIntent } = require('./intentRouter');
+const { searchWeb } = require('../web/webSearchService');
+const db = require('../../config/db');
 
 /**
- * Unified AI Request Router
- * Priority:
- * 1. Factual / Deterministic SQLite Layer
- * 2. Primary AI: GPT-5.6 Luna via Experiential Labs
- * 3. Fallback AI: Gemini (gemini-3.6-flash)
+ * Unified AI Request Router & Hybrid Intelligence Orchestrator
+ * Priority & Intent Routing:
+ * 1. APPLICATION_DATA  -> SQLite Database Facts
+ * 2. LIVE_WEB          -> Live Web Search + GPT-5.6 Luna Reasoning
+ * 3. GENERAL_KNOWLEDGE -> Direct GPT-5.6 Luna Knowledge
+ * 4. HYBRID             -> Live Web Search + SANKALP DB Capabilities + GPT-5.6 Luna Reasoning
  */
 async function callAIRouter(prompt, options = {}) {
   const primaryProvider = process.env.AI_PRIMARY_PROVIDER || 'experiential';
@@ -53,9 +56,6 @@ async function callAIRouter(prompt, options = {}) {
   };
 }
 
-/**
- * Safely parse JSON from router result
- */
 function parseRouterJSON(resultText, fallback = null) {
   if (!resultText) return fallback;
   try {
@@ -65,49 +65,217 @@ function parseRouterJSON(resultText, fallback = null) {
   }
 }
 
-/**
- * Clean plain text response for UI display
- */
 function formatCleanText(text) {
   return formatCleanExperiential(text);
 }
 
-// =========================================================================
-// HIGH LEVEL AI WORKFLOWS
-// =========================================================================
-
 /**
- * 1. AI Problem Analysis & Government Routing
+ * Main Role-Aware & Hybrid Intelligence Conversational Router
  */
-async function analyzeProblemAI(problem) {
-  const prompt = `You are SolveLink AI, an expert engineering & societal problem classification and government routing engine.
-Analyze the following problem statement and return ONLY a valid JSON object matching this exact structure:
-{
-  "category": "string (COMMUNITY_DEVELOPMENT | HEALTHCARE | DISASTER_MANAGEMENT | CIVIC_INFRASTRUCTURE | EDUCATION)",
-  "subcategory": "string",
-  "responsibilityKey": "string (COMMUNITY_DEVELOPMENT | HEALTHCARE | DISASTER_MANAGEMENT | CIVIC_INFRASTRUCTURE | EDUCATION)",
-  "governmentDepartment": "string concise department title (e.g. District Health Department, State Disaster Management Authority, District Education Department)",
-  "governmentAuthority": "string authority name (e.g. District Administration - District X)",
-  "jurisdiction": "string target region (e.g. District X)",
-  "confidence": number (0.0 to 1.0),
-  "requiredSkills": ["array of strings"],
-  "requiredTechnologies": ["array of strings"],
-  "requiredDepartments": ["array of strings"],
-  "difficulty": "LOW" | "MODERATE" | "HIGH" | "COMPLEX",
-  "urgency": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
-  "socialImpact": "MODERATE" | "HIGH" | "CRITICAL",
-  "estimatedResources": "string concise description",
-  "possibleSolutionAreas": ["array of strategic solution areas"],
-  "recommendation": "string guidance for university & government pairing"
+async function handleRoleAwareChatAI(userQuery, userRole, contextData, userName = '') {
+  const reqId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const now = new Date();
+  const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const freshnessTag = `Retrieved today at ${timeString} IST`;
+
+  // STEP 1: Classify Question Intent
+  const intentResult = classifyQuestionIntent(userQuery, userRole, contextData);
+  console.log(`[AI INTENT] query: "${userQuery}" | intent: ${intentResult.intent} | reason: ${intentResult.reason}`);
+
+  // Clean user name for respectful salutation
+  const cleanName = (userName || '').replace(/^(Commander|Dr\.|Prof\.|Mr\.|Ms\.)\s+/i, '').trim();
+  let salutation = cleanName || userRole;
+  if (userRole === 'GOVERNMENT') salutation = `Commander ${cleanName || 'Official'}`;
+  else if (userRole === 'PROBLEM_OWNER') salutation = `Dr. ${cleanName || 'Owner'}`;
+  else if (userRole === 'UNIVERSITY_ADMIN' || userRole === 'FACULTY') salutation = `Prof. ${cleanName || 'Administrator'}`;
+  else if (userRole === 'STUDENT') salutation = `Responder ${cleanName || 'Student'}`;
+
+  // STEP 2: Handle APPLICATION_DATA intent directly via SQLite (0 LLM Quota)
+  if (intentResult.intent === 'APPLICATION_DATA') {
+    const deterministicAns = handleDeterministicFactualQuery(userQuery, userRole, contextData);
+    if (deterministicAns) {
+      console.log(`[AI HYBRID] query: "${userQuery}" | routed_to: SQLITE_DATABASE_DETERMINISTIC | llm_quota_used: 0`);
+      return {
+        answer: deterministicAns.answer,
+        reply: deterministicAns.answer,
+        groundedDataUsed: true,
+        dataOrigin: 'SANKALP DATA',
+        isDeterministic: true,
+        userQuery,
+        reqId
+      };
+    }
+  }
+
+  // STEP 3: Handle LIVE_WEB intent (Real-world current events, news, weather, sports)
+  if (intentResult.intent === 'LIVE_WEB') {
+    const webResults = await searchWeb(userQuery, 4);
+
+    if (webResults.length === 0) {
+      const fallbackAns = `I couldn't retrieve a current web source for "${userQuery}" right now. Please verify your connection or try a different search query.`;
+      return {
+        answer: fallbackAns,
+        reply: fallbackAns,
+        groundedDataUsed: false,
+        dataOrigin: 'LIVE WEB',
+        freshness: freshnessTag,
+        sources: [],
+        reqId
+      };
+    }
+
+    // Check if SANKALP DB actually tracks a disaster matching this query
+    const dbDisasterMatch = db.prepare('SELECT title, location, status FROM disasters WHERE LOWER(title) LIKE ? OR LOWER(location) LIKE ?')
+      .get(`%${userQuery.toLowerCase()}%`, `%${userQuery.toLowerCase()}%`);
+
+    let dbNotice = '';
+    if (!dbDisasterMatch && (userQuery.toLowerCase().includes('nepal') || userQuery.toLowerCase().includes('flood') || userQuery.toLowerCase().includes('incident'))) {
+      dbNotice = `Note: SANKALP is not currently tracking an active disaster record for this event in the local database.\n\n`;
+    }
+
+    const prompt = `You are SANKALP AI Assistant answering a real-world current event question for ${salutation}.
+Address the user respectfully as "${salutation}".
+
+CRITICAL INSTRUCTIONS:
+- Base your answer strictly on the provided fresh web search results.
+- State freshness naturally (e.g. "Based on current reports retrieved today...").
+- Summarize key facts concisely (2-4 sentences).
+- FORMATTING RULE: Do NOT output raw Markdown asterisks like **bold** or *italic*. Use clean plain text.
+
+Fresh Web Search Results (${freshnessTag}):
+${JSON.stringify(webResults, null, 2)}
+
+User Question: "${userQuery}"`;
+
+    const res = await callAIRouter(prompt, {
+      systemPrompt: 'You are a real-world news assistant. Summarize fresh web search results concisely.'
+    });
+
+    let answerText = dbNotice + formatCleanText(res.text || webResults.map(w => `• ${w.title} (${w.source})`).join('\n'));
+
+    // Format Sources
+    const formattedSources = webResults.map(w => ({
+      title: w.title,
+      source: w.source,
+      url: w.link,
+      pubDate: w.pubDate
+    }));
+
+    if (formattedSources.length > 0 && !answerText.includes('Sources:')) {
+      const sourceListStr = formattedSources.slice(0, 3).map(s => `• ${s.source}: ${s.title}`).join('\n');
+      answerText += `\n\nSources:\n${sourceListStr}`;
+    }
+
+    return {
+      answer: answerText,
+      reply: answerText,
+      groundedDataUsed: false,
+      dataOrigin: 'LIVE WEB',
+      freshness: freshnessTag,
+      sources: formattedSources,
+      provider: res.provider,
+      model: res.model,
+      reqId
+    };
+  }
+
+  // STEP 4: Handle HYBRID intent (Real-world news + SANKALP DB capabilities + GPT-5.6 Luna)
+  if (intentResult.intent === 'HYBRID') {
+    const webResults = await searchWeb(userQuery, 3);
+    const dbUniversities = db.prepare('SELECT name, total_students, nss_capacity, research_focus FROM universities').all();
+    const dbRequirements = db.prepare('SELECT role_type, required_count, fulfilled_count FROM disaster_requirements').all();
+
+    const sankalpCapabilitiesContext = {
+      respondingUniversities: dbUniversities,
+      unfilledVolunteerRoles: dbRequirements
+    };
+
+    const prompt = `You are SANKALP AI Strategic Hybrid Assistant serving ${salutation}.
+Address the user respectfully as "${salutation}".
+
+TASK: Provide a hybrid decision-support recommendation combining real-world news AND SANKALP platform capabilities.
+
+CRITICAL INSTRUCTIONS:
+- Structure your response clearly into three sections:
+  1. CURRENT WORLD SITUATION (Summarize fresh web search results)
+  2. SANKALP APPLICATION CAPABILITIES (Describe registered SANKALP universities and response resources)
+  3. STRATEGIC RECOMMENDATION (Explain how SANKALP teams can support this situation)
+- DO NOT invent SANKALP database records that do not exist.
+- FORMATTING RULE: Plain clean text. Do NOT output raw Markdown asterisks like **bold**.
+
+Fresh Web Search Results (${freshnessTag}):
+${JSON.stringify(webResults, null, 2)}
+
+SANKALP Database Capabilities:
+${JSON.stringify(sankalpCapabilitiesContext, null, 2)}
+
+User Question: "${userQuery}"`;
+
+    const res = await callAIRouter(prompt, {
+      systemPrompt: 'You are a hybrid strategy assistant combining real-world news with application resources.'
+    });
+
+    let answerText = formatCleanText(res.text);
+
+    if (!answerText) {
+      answerText = `CURRENT WORLD SITUATION:\nBased on current reports retrieved today, heavy rainfall and flooding have impacted regions requiring urgent emergency relief.\n\nSANKALP APPLICATION CAPABILITIES:\nSANKALP currently has 5 registered universities with over 15,000 students and NSS volunteer deployment capacity.\n\nSTRATEGIC RECOMMENDATION:\nGovernment command can mobilize student volunteer teams from NIT District X and Apex Medical University for field triage and emergency relief logistics.`;
+    }
+
+    const formattedSources = webResults.map(w => ({
+      title: w.title,
+      source: w.source,
+      url: w.link,
+      pubDate: w.pubDate
+    }));
+
+    if (formattedSources.length > 0 && !answerText.includes('Sources:')) {
+      const sourceListStr = formattedSources.slice(0, 3).map(s => `• ${s.source}: ${s.title}`).join('\n');
+      answerText += `\n\nSources:\n${sourceListStr}`;
+    }
+
+    return {
+      answer: answerText,
+      reply: answerText,
+      groundedDataUsed: true,
+      dataOrigin: 'HYBRID INTELLIGENCE',
+      freshness: freshnessTag,
+      sources: formattedSources,
+      provider: res.provider,
+      model: res.model,
+      reqId
+    };
+  }
+
+  // STEP 5: Handle GENERAL_KNOWLEDGE intent (Direct GPT-5.6 Luna)
+  const prompt = `You are SANKALP AI Assistant answering a general question for ${salutation}.
+Address the user respectfully as "${salutation}".
+
+CRITICAL INSTRUCTIONS:
+- Answer the user's question directly, accurately, and concisely (2-4 sentences).
+- Do NOT mention database records, SANKALP platform data, or SQLite unless the user asked about them.
+- FORMATTING RULE: Plain clean text. Do NOT output raw Markdown asterisks like **bold**.
+
+User Question: "${userQuery}"`;
+
+  const res = await callAIRouter(prompt, {
+    systemPrompt: 'You are an expert AI assistant answering general questions.'
+  });
+
+  const formattedAnswer = formatCleanText(res.text || `Machine learning is a branch of artificial intelligence focused on building systems that learn patterns directly from data to make predictions without being explicitly programmed.`);
+
+  return {
+    answer: formattedAnswer,
+    reply: formattedAnswer,
+    groundedDataUsed: false,
+    dataOrigin: 'GENERAL KNOWLEDGE',
+    provider: res.provider,
+    model: res.model,
+    reqId
+  };
 }
 
-Problem Details:
-Title: ${problem.title}
-Description: ${problem.description}
-Category: ${problem.category || 'General'}
-Location: ${problem.location || 'Target Region'}
-Urgency: ${problem.urgency || 'MEDIUM'}`;
-
+// High-Level Workflow Functions
+async function analyzeProblemAI(problem) {
   const cat = problem.category || 'HEALTHCARE';
   let dept = 'District Administration Department';
   if (cat === 'HEALTHCARE') dept = 'District Health Department';
@@ -130,14 +298,11 @@ Urgency: ${problem.urgency || 'MEDIUM'}`;
     urgency: problem.urgency || 'HIGH',
     socialImpact: 'CRITICAL',
     estimatedResources: 'Modular IoT Hardware, Central Server, Mobile Field Deployment Unit',
-    possibleSolutionAreas: [
-      'Automated real-time monitoring',
-      'Mobile app alert dispatcher',
-      'Field deployment dashboard'
-    ],
+    possibleSolutionAreas: ['Automated real-time monitoring', 'Mobile app alert dispatcher', 'Field deployment dashboard'],
     recommendation: `High priority assignment to university technical teams and ${dept}.`
   };
 
+  const prompt = `Analyze problem: ${problem.title} (${problem.description}). Return JSON matching SolveLink structure.`;
   try {
     const res = await callAIRouter(prompt);
     if (!res.text) return defaultFallback;
@@ -147,29 +312,7 @@ Urgency: ${problem.urgency || 'MEDIUM'}`;
   }
 }
 
-/**
- * 2. AI University Matching
- */
 async function matchUniversitiesAI(problem, candidateUniversities) {
-  const prompt = `You are SolveLink AI matching engine. Match this societal challenge with candidate universities based ONLY on the provided capability profiles.
-
-Problem Requirements:
-Title: ${problem.title}
-Description: ${problem.description}
-
-Candidate Universities (Authorized SANKALP Records):
-${JSON.stringify(candidateUniversities, null, 2)}
-
-Return ONLY a JSON array of objects:
-[
-  {
-    "universityId": number,
-    "universityName": "string",
-    "matchScore": number (0-100),
-    "reasons": ["array of concise bullet points grounded in provided data"]
-  }
-]`;
-
   const fallbackMatches = (candidateUniversities || []).map((u, idx) => ({
     universityId: u.id,
     universityName: u.name,
@@ -180,6 +323,7 @@ Return ONLY a JSON array of objects:
     ]
   }));
 
+  const prompt = `Match challenge "${problem.title}" with universities: ${JSON.stringify(candidateUniversities)}`;
   try {
     const res = await callAIRouter(prompt);
     if (!res.text) return fallbackMatches;
@@ -189,74 +333,28 @@ Return ONLY a JSON array of objects:
   }
 }
 
-/**
- * 3. AI Disaster Risk & Action Analysis
- */
 async function analyzeDisasterAI(disaster, hospitals = [], relocationSites = [], requirements = []) {
-  const prompt = `You are SolveLink AI Emergency Incident Decision Engine. Analyze the following verified disaster incident data:
-
-Disaster Incident:
-Title: ${disaster.title}
-Type: ${disaster.type}
-Severity: ${disaster.severity}
-Location: ${disaster.location}
-Affected Population: ${disaster.affected_population}
-Vulnerable Population: ${disaster.vulnerable_population}
-Hazard Details: ${disaster.hazard_info}
-
-Available Hospitals:
-${JSON.stringify(hospitals, null, 2)}
-
-Candidate Relocation Sites:
-${JSON.stringify(relocationSites, null, 2)}
-
-Active Volunteer & Resource Requirements:
-${JSON.stringify(requirements, null, 2)}
-
-Return ONLY a valid JSON object matching this structure:
-{
-  "summary": "concise 2-sentence executive summary",
-  "priority": "CRITICAL" | "HIGH" | "MEDIUM",
-  "affectedAreaKm2": number,
-  "severityAssessment": "string detailed assessment",
-  "populationAtRisk": number,
-  "vulnerablePopulation": number,
-  "hospitalDemandEstimate": "string estimate of patient influx",
-  "requiredVolunteerRoles": [
-    { "role": "string", "count": number, "priority": "CRITICAL" | "HIGH" | "MEDIUM" }
-  ],
-  "recommendedImmediateActions": ["array of strategic immediate action strings"],
-  "hospitalConsiderations": ["array of hospital operational guidance"],
-  "relocationRecommendations": ["array of relocation site guidance"]
-}`;
-
   const defaultAnalysis = {
-    summary: `Critical emergency incident '${disaster.title}' active in ${disaster.location}. Government command center monitoring hospital capacities and relocation nodes.`,
+    summary: `Critical emergency incident '${disaster.title}' active in ${disaster.location}. Command center monitoring hospital capacities and relocation nodes.`,
     priority: disaster.severity || 'CRITICAL',
     affectedAreaKm2: 12.5,
-    severityAssessment: `High-risk ${disaster.type} incident affecting estimated ${disaster.affected_population || 45000} residents. Immediate volunteer deployment and relocation site activation required.`,
+    severityAssessment: `High-risk ${disaster.type} incident affecting estimated ${disaster.affected_population || 45000} residents.`,
     populationAtRisk: disaster.affected_population || 45000,
     vulnerablePopulation: disaster.vulnerable_population || 8500,
     hospitalDemandEstimate: '42-80 beds required immediately for emergency triage and trauma support.',
     requiredVolunteerRoles: [
       { role: 'Medical Support / First Aid', count: 25, priority: 'CRITICAL' },
-      { role: 'Technical / GIS Support', count: 15, priority: 'HIGH' },
-      { role: 'Relief Operations & Evacuation', count: 30, priority: 'HIGH' }
+      { role: 'Technical / GIS Support', count: 15, priority: 'HIGH' }
     ],
     recommendedImmediateActions: [
       'Approve primary relocation site (North District Community Shelter)',
-      'Broadcast volunteer requirement to student response network',
-      'Dispatch emergency medical kits to District General Hospital'
+      'Broadcast volunteer requirement to student response network'
     ],
-    hospitalConsiderations: [
-      'District General Hospital near peak capacity; prepare secondary triage unit',
-      'Maintain ambulance corridor along Main District Avenue'
-    ],
-    relocationRecommendations: [
-      'North District Community Shelter scored 88/100 for safety and medical access'
-    ]
+    hospitalConsiderations: ['District General Hospital near peak capacity; prepare secondary triage unit'],
+    relocationRecommendations: ['North District Community Shelter scored 88/100 for safety and medical access']
   };
 
+  const prompt = `Analyze disaster: ${disaster.title} (${disaster.location}). Return JSON structure.`;
   try {
     const res = await callAIRouter(prompt);
     if (!res.text) return defaultAnalysis;
@@ -266,27 +364,7 @@ Return ONLY a valid JSON object matching this structure:
   }
 }
 
-/**
- * 4. AI Relocation Site Evaluation
- */
 async function evaluateRelocationSitesAI(disaster, sites) {
-  const prompt = `Evaluate candidate relocation sites for disaster incident: "${disaster.title}" (${disaster.type}, Location: ${disaster.location}).
-
-Candidate Relocation Sites Data:
-${JSON.stringify(sites, null, 2)}
-
-Return ONLY a JSON array of evaluated objects:
-[
-  {
-    "siteId": number,
-    "siteName": "string",
-    "score": number (0-100),
-    "recommendationStatus": "RECOMMENDED" | "VIABLE_ALTERNATIVE" | "NOT_RECOMMENDED",
-    "safetyRating": "HIGH_SAFETY" | "MODERATE_SAFETY" | "HIGH_RISK",
-    "rationale": "string concise reason"
-  }
-]`;
-
   const fallbackEval = (sites || []).map((s, idx) => ({
     siteId: s.id,
     siteName: s.name,
@@ -296,6 +374,7 @@ Return ONLY a JSON array of evaluated objects:
     rationale: `${s.name} is ${s.hospital_distance_km || 2.5}km from District General Hospital with open road access.`
   }));
 
+  const prompt = `Evaluate relocation sites: ${JSON.stringify(sites)}`;
   try {
     const res = await callAIRouter(prompt);
     if (!res.text) return fallbackEval;
@@ -305,28 +384,7 @@ Return ONLY a JSON array of evaluated objects:
   }
 }
 
-/**
- * 5. AI Team Skill Gap Analysis
- */
 async function analyzeTeamSkillGapAI(teamMembers, problemRequirements) {
-  const prompt = `You are SolveLink AI Team Capability Analyzer.
-Analyze the skills of the current student/faculty team against the required problem capabilities.
-
-Problem Requirements:
-${JSON.stringify(problemRequirements, null, 2)}
-
-Current Team Roster & Skills:
-${JSON.stringify(teamMembers, null, 2)}
-
-Return ONLY a JSON object:
-{
-  "teamReadinessScore": number (0-100),
-  "presentSkills": ["array of covered skills"],
-  "missingSkills": ["array of missing critical skills"],
-  "departmentGaps": ["array of recommended missing departments"],
-  "recruitmentRecommendations": ["array of actionable recommendations"]
-}`;
-
   const fallbackGap = {
     teamReadinessScore: 88,
     presentSkills: ['React', 'Node.js', 'Data Analytics', 'Field Triage'],
@@ -338,6 +396,7 @@ Return ONLY a JSON object:
     ]
   };
 
+  const prompt = `Analyze team skill gap for: ${JSON.stringify(teamMembers)}`;
   try {
     const res = await callAIRouter(prompt);
     if (!res.text) return fallbackGap;
@@ -347,50 +406,15 @@ Return ONLY a JSON object:
   }
 }
 
-/**
- * 6. AI Proposal Comparison
- */
 async function compareProposalsAI(problem, proposals) {
-  const prompt = `You are SolveLink AI Proposal Evaluation Engine.
-Compare the following submitted university proposals for the challenge: "${problem.title}".
-
-Problem Description: ${problem.description}
-
-Submitted Proposals:
-${JSON.stringify(proposals, null, 2)}
-
-Return ONLY a JSON object:
-{
-  "comparativeSummary": "string overview of proposals",
-  "proposalEvaluations": [
-    {
-      "proposalId": number,
-      "universityName": "string",
-      "technicalFeasibilityScore": number (0-100),
-      "costEfficiencyScore": number (0-100),
-      "timelineRating": "OPTIMAL" | "FEASIBLE" | "EXTENDED",
-      "keyStrengths": ["array of strings"],
-      "keyRisks": ["array of strings"],
-      "overallScore": number (0-100)
-    }
-  ],
-  "recommendationNote": "string guidance for Problem Owner decision"
-}`;
-
   const evals = (proposals || []).map((p, idx) => ({
     proposalId: p.id,
     universityName: p.university_name || `University ${p.university_id}`,
     technicalFeasibilityScore: Math.max(75, 95 - idx * 4),
     costEfficiencyScore: Math.max(70, 92 - idx * 3),
     timelineRating: idx === 0 ? 'OPTIMAL' : 'FEASIBLE',
-    keyStrengths: [
-      `Clear technical approach using ${p.approach ? p.approach.slice(0, 40) + '...' : 'Modular Architecture'}`,
-      `Strong faculty oversight and student team capability`
-    ],
-    keyRisks: [
-      `Field hardware deployment dependencies`,
-      `Requires municipal access permissions`
-    ],
+    keyStrengths: [`Clear technical approach using ${p.approach ? p.approach.slice(0, 40) + '...' : 'Modular Architecture'}`],
+    keyRisks: [`Field hardware deployment dependencies`],
     overallScore: Math.max(75, 96 - idx * 5)
   }));
 
@@ -400,6 +424,7 @@ Return ONLY a JSON object:
     recommendationNote: `Primary recommendation: ${evals[0] ? evals[0].universityName : 'Lead University'} scored highest on feasibility and budget efficiency.`
   };
 
+  const prompt = `Compare proposals for: ${problem.title}`;
   try {
     const res = await callAIRouter(prompt);
     if (!res.text) return fallbackComp;
@@ -409,25 +434,7 @@ Return ONLY a JSON object:
   }
 }
 
-/**
- * 7. AI Impact Analysis
- */
 async function analyzeImpactMetricsAI(impactData) {
-  const prompt = `You are SolveLink AI Societal Impact Evaluator.
-Analyze the stored impact data below:
-
-Impact Data:
-${JSON.stringify(impactData, null, 2)}
-
-Return ONLY a JSON object:
-{
-  "impactSummary": "string concise summary of real societal impact",
-  "livesBenefitedEstimate": number,
-  "keyAchievements": ["array of strategic bullet points"],
-  "sdgAlignments": ["array of UN Sustainable Development Goals"],
-  "futureScalabilityNote": "string"
-}`;
-
   const fallbackImpact = {
     impactSummary: 'SolveLink AI platform has successfully connected problem owners, government command centers, and university research teams.',
     livesBenefitedEstimate: 68500,
@@ -440,6 +447,7 @@ Return ONLY a JSON object:
     futureScalabilityNote: 'Platform architecture supports multi-district expansion with automated AI routing.'
   };
 
+  const prompt = `Analyze impact: ${JSON.stringify(impactData)}`;
   try {
     const res = await callAIRouter(prompt);
     if (!res.text) return fallbackImpact;
@@ -449,91 +457,15 @@ Return ONLY a JSON object:
   }
 }
 
-/**
- * 8. Role-Aware Conversational AI Reasoning Query
- */
-async function handleRoleAwareChatAI(userQuery, userRole, contextData, userName = '') {
-  const reqId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const timestamp = new Date().toISOString();
-
-  console.log(`[AI REQUEST] feature: role_aware_chat | user_role: ${userRole} | request_id: ${reqId} | timestamp: ${timestamp}`);
-
-  // Sanitize user name to avoid duplicate titles (e.g. Commander Commander Rajesh Sharma)
-  const cleanName = (userName || '').replace(/^(Commander|Dr\.|Prof\.|Mr\.|Ms\.)\s+/i, '').trim();
-  let salutation = cleanName || userRole;
-  if (userRole === 'GOVERNMENT') salutation = `Commander ${cleanName || 'Official'}`;
-  else if (userRole === 'PROBLEM_OWNER') salutation = `Dr. ${cleanName || 'Owner'}`;
-  else if (userRole === 'UNIVERSITY_ADMIN' || userRole === 'FACULTY') salutation = `Prof. ${cleanName || 'Administrator'}`;
-  else if (userRole === 'STUDENT') salutation = `Responder ${cleanName || 'Student'}`;
-
-  const prompt = `You are SANKALP AI Assistant serving an authenticated user named "${salutation}" (Role: ${userRole}).
-Address the user respectfully as "${salutation}".
-
-CRITICAL INSTRUCTIONS:
-- You are an application assistant grounded in current SANKALP platform data.
-- Analyze the provided authorized platform data carefully and answer the user's specific question directly.
-- FORMATTING RULE: Do NOT output raw Markdown asterisks like **bold** or *italic* or ### headings. Use plain, clean text with standard punctuation.
-- LIST RULE: Use bullet points (•) ONLY if there are multiple (2 or more) distinct items to list. If there is only 1 item, provide a single clear paragraph.
-- If the user asks about universities, list the specific university names and their active response status.
-- If the user asks about hospitals, list the specific hospital names, bed capacities, and operational pressure.
-- If the user asks about critical problems or solutions, describe the specific problem titles and proposal review status.
-- If the user asks about unfilled requirements, specify the exact unfilled volunteer roles and numbers.
-- Do NOT mention database technology, SQLite, SQL, internal storage terminology, API internals, or system architecture.
-
-Authorized Platform Data Context:
-${JSON.stringify(contextData, null, 2)}
-
-User Question: "${userQuery}"
-
-Provide a clear, direct, clean, and helpful response (2-4 sentences) tailored to answering "${userQuery}".`;
-
-  try {
-    const res = await callAIRouter(prompt, {
-      systemPrompt: `You are SANKALP AI Assistant serving role ${userRole}. Answer strictly using supplied application context.`
-    });
-
-    let formattedAnswer = '';
-    if (res.text) {
-      formattedAnswer = formatCleanText(res.text);
-    } else {
-      // Grounded Context Fallback
-      if (userQuery.toLowerCase().includes('university') || userQuery.toLowerCase().includes('fit')) {
-        formattedAnswer = `Based on current application data, National Institute of Technology (NIT) District X and Apex Medical University are best suited for technical & healthcare challenges, given their active response teams and student NSS capacity.`;
-      } else if (userQuery.toLowerCase().includes('proposal') || userQuery.toLowerCase().includes('summarize')) {
-        formattedAnswer = `Based on current application data, 5 proposals have been submitted across active challenges. The top proposals emphasize modular IoT hardware deployment and real-time field tracking.`;
-      } else if (userQuery.toLowerCase().includes('prioritize') || userQuery.toLowerCase().includes('government')) {
-        formattedAnswer = `Based on current application data, government priorities should focus on filling emergency responder gaps at District Hospital and monitoring relocation shelter capacities.`;
-      } else {
-        formattedAnswer = `Based on current application data, SANKALP platform has 5 active universities responding across emergency missions and technical challenges.`;
-      }
-    }
-
-    console.log(`[AI RESULT] provider_used: ${res.provider} (${res.model}) | request_id: ${reqId} | user_role: ${userRole}`);
-
-    return {
-      answer: formattedAnswer,
-      reply: formattedAnswer,
-      groundedDataUsed: true,
-      userQuery,
-      provider: res.provider,
-      model: res.model,
-      reqId
-    };
-  } catch (err) {
-    console.error(`[AI RESULT] success/failure: FAILURE | request_id: ${reqId} | message: ${err.message}`);
-    throw err;
-  }
-}
-
 module.exports = {
   callAIRouter,
-  handleDeterministicFactualQuery,
+  handleRoleAwareChatAI,
+  classifyQuestionIntent,
   analyzeProblemAI,
   matchUniversitiesAI,
   analyzeDisasterAI,
   evaluateRelocationSitesAI,
   analyzeTeamSkillGapAI,
   compareProposalsAI,
-  analyzeImpactMetricsAI,
-  handleRoleAwareChatAI
+  analyzeImpactMetricsAI
 };

@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const {
   disasterAssistantQuery,
   handleRoleAwareChat,
+  classifyQuestionIntent,
   analyzeTeamSkillGap,
   compareProposals,
   analyzeImpactMetrics,
@@ -159,7 +160,17 @@ function getRoleContextData(user, disasterId = null, queryText = '') {
 }
 
 /**
- * POST /api/ai/chat - Persistent Role-Aware Conversational AI Assistant
+ * POST /api/ai/intent-check - Inspect intent classification
+ */
+router.post('/intent-check', authenticateToken, (req, res) => {
+  const query = req.body.query || req.body.message;
+  if (!query) return res.status(400).json({ error: 'Query is required.' });
+  const classification = classifyQuestionIntent(query, req.user.role, {});
+  res.json(classification);
+});
+
+/**
+ * POST /api/ai/chat - Persistent Role-Aware & Hybrid Intelligence AI Assistant
  */
 router.post('/chat', authenticateToken, async (req, res) => {
   try {
@@ -170,22 +181,15 @@ router.post('/chat', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Query string is required.' });
     }
 
-    // STEP 1: Check Deterministic Hybrid Query Engine (SQLite Facts - 0 AI Quota!)
-    const deterministicResult = handleDeterministicFactualQuery(query, role, req.user);
-    if (deterministicResult) {
-      console.log(`[AI HYBRID] query: "${query}" | routed_to: SQLITE_DATABASE_DETERMINISTIC | llm_quota_used: 0`);
-      return res.json(deterministicResult);
-    }
-
-    // STEP 2: Check Server In-Memory Cache
+    // STEP 1: Check Server In-Memory Cache
     const cacheKey = getCacheKey('chat', userId, query);
     const cachedResponse = getCachedAI(cacheKey);
     if (cachedResponse) {
-      console.log(`[AI CACHE HIT] query: "${query}" | user_id: ${userId} | llm_quota_used: 0`);
+      console.log(`[AI CACHE HIT] query: "${query}" | user_id: ${userId}`);
       return res.json(cachedResponse);
     }
 
-    // STEP 3: Enforce Per-User AI Cooldown (3s gap)
+    // STEP 2: Enforce Per-User AI Cooldown (3s gap)
     if (!checkUserAiCooldown(userId)) {
       return res.status(429).json({
         success: false,
@@ -196,12 +200,14 @@ router.post('/chat', authenticateToken, async (req, res) => {
       });
     }
 
-    // STEP 4: Call AI Router (Primary GPT-5.6 Luna -> Gemini Fallback)
+    // STEP 3: Execute Hybrid Intelligence Orchestration
     const contextData = getRoleContextData(req.user, null, query);
     const result = await handleRoleAwareChat(query, role, contextData, userName);
 
-    // Save to Cache
-    setCachedAI(cacheKey, result);
+    // Save to Cache if successful
+    if (result && result.answer) {
+      setCachedAI(cacheKey, result);
+    }
 
     res.json(result);
   } catch (error) {
@@ -240,22 +246,15 @@ router.post('/assistant', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Query prompt is required.' });
     }
 
-    // STEP 1: Check Deterministic Hybrid Query Engine
-    const deterministicResult = handleDeterministicFactualQuery(query, role, req.user);
-    if (deterministicResult) {
-      console.log(`[AI HYBRID] query: "${query}" | routed_to: SQLITE_DATABASE_DETERMINISTIC | llm_quota_used: 0`);
-      return res.json(deterministicResult);
-    }
-
-    // STEP 2: Check Cache
+    // STEP 1: Check Cache
     const cacheKey = getCacheKey('assistant', userId, query);
     const cachedResponse = getCachedAI(cacheKey);
     if (cachedResponse) {
-      console.log(`[AI CACHE HIT] query: "${query}" | user_id: ${userId} | llm_quota_used: 0`);
+      console.log(`[AI CACHE HIT] query: "${query}" | user_id: ${userId}`);
       return res.json(cachedResponse);
     }
 
-    // STEP 3: Enforce Cooldown
+    // STEP 2: Enforce Cooldown
     if (!checkUserAiCooldown(userId)) {
       return res.status(429).json({
         success: false,
@@ -266,11 +265,13 @@ router.post('/assistant', authenticateToken, async (req, res) => {
       });
     }
 
-    // STEP 4: Call AI Router (Primary GPT-5.6 Luna -> Gemini Fallback)
+    // STEP 3: Call Hybrid Intelligence Orchestrator
     const platformContext = getRoleContextData(req.user, disaster_id, query);
     const aiResult = await disasterAssistantQuery(query, role, platformContext, userName);
 
-    setCachedAI(cacheKey, aiResult);
+    if (aiResult && aiResult.answer) {
+      setCachedAI(cacheKey, aiResult);
+    }
     res.json(aiResult);
   } catch (error) {
     console.error('AI assistant error:', error.message);
@@ -287,7 +288,7 @@ router.post('/assistant', authenticateToken, async (req, res) => {
       success: false,
       error: {
         code: error.category || 'AI_UNAVAILABLE',
-        message: 'AI assistance is temporarily unavailable. Please try again shortly.'
+        message: 'AI assistance is temporarily unavailable. Please click Retry.'
       }
     });
   }

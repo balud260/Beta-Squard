@@ -94,7 +94,10 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
         {
           sender: 'ai',
           text: res.answer || res.reply || 'Analysis completed.',
-          grounded: res.groundedDataUsed !== false
+          grounded: res.groundedDataUsed !== false,
+          dataOrigin: res.dataOrigin,
+          sources: res.sources,
+          freshness: res.freshness
         }
       ]);
     } catch (err) {
