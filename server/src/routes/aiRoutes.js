@@ -8,8 +8,7 @@ const {
   classifyQuestionIntent,
   analyzeTeamSkillGap,
   compareProposals,
-  analyzeImpactMetrics,
-  handleDeterministicFactualQuery
+  analyzeImpactMetrics
 } = require('../services/aiService');
 const { getCachedAI, setCachedAI, getCacheKey } = require('../services/ai/aiCache');
 
@@ -163,9 +162,11 @@ function getRoleContextData(user, disasterId = null, queryText = '') {
  * POST /api/ai/intent-check - Inspect intent classification
  */
 router.post('/intent-check', authenticateToken, (req, res) => {
-  const query = req.body.query || req.body.message;
-  if (!query) return res.status(400).json({ error: 'Query is required.' });
-  const classification = classifyQuestionIntent(query, req.user.role, {});
+  const query = req.body.query || req.body.message || req.body.prompt;
+  if (!query || !query.trim()) {
+    return res.status(400).json({ error: 'Query string is required.' });
+  }
+  const classification = classifyQuestionIntent(query.trim(), req.user.role, {});
   res.json(classification);
 });
 
@@ -174,18 +175,27 @@ router.post('/intent-check', authenticateToken, (req, res) => {
  */
 router.post('/chat', authenticateToken, async (req, res) => {
   try {
-    const query = req.body.query || req.body.message;
+    const query = req.body.query || req.body.message || req.body.prompt;
+    const history = req.body.history || [];
     const { role, id: userId, name: userName } = req.user;
 
-    if (!query || query.trim() === '') {
-      return res.status(400).json({ error: 'Query string is required.' });
+    if (!query || typeof query !== 'string' || query.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_QUERY',
+          message: 'Please provide a valid question or message.'
+        }
+      });
     }
 
-    // STEP 1: Check Server In-Memory Cache
-    const cacheKey = getCacheKey('chat', userId, query);
+    const cleanQuery = query.trim();
+
+    // STEP 1: Check Server In-Memory Cache (Uses exact normalized query key)
+    const cacheKey = getCacheKey('chat', userId, cleanQuery);
     const cachedResponse = getCachedAI(cacheKey);
-    if (cachedResponse) {
-      console.log(`[AI CACHE HIT] query: "${query}" | user_id: ${userId}`);
+    if (cachedResponse && (!history || history.length === 0)) {
+      console.log(`[AI CACHE HIT] query: "${cleanQuery}" | user_id: ${userId}`);
       return res.json(cachedResponse);
     }
 
@@ -201,11 +211,11 @@ router.post('/chat', authenticateToken, async (req, res) => {
     }
 
     // STEP 3: Execute Hybrid Intelligence Orchestration
-    const contextData = getRoleContextData(req.user, null, query);
-    const result = await handleRoleAwareChat(query, role, contextData, userName);
+    const contextData = getRoleContextData(req.user, null, cleanQuery);
+    const result = await handleRoleAwareChat(cleanQuery, role, contextData, userName, history);
 
-    // Save to Cache if successful
-    if (result && result.answer) {
+    // Save to Cache if successful and no conversation history
+    if (result && result.answer && (!history || history.length === 0) && result.intent !== 'GENERAL_CONVERSATION') {
       setCachedAI(cacheKey, result);
     }
 
@@ -227,7 +237,7 @@ router.post('/chat', authenticateToken, async (req, res) => {
       success: false,
       error: {
         code: error.category || 'AI_UNAVAILABLE',
-        message: 'AI assistance is temporarily unavailable. Please try again shortly.'
+        message: 'SANKALP AI is temporarily unavailable. Please try again shortly.'
       }
     });
   }
@@ -238,19 +248,28 @@ router.post('/chat', authenticateToken, async (req, res) => {
  */
 router.post('/assistant', authenticateToken, async (req, res) => {
   try {
-    const query = req.body.query || req.body.message;
+    const query = req.body.query || req.body.message || req.body.prompt;
     const disaster_id = req.body.disaster_id;
+    const history = req.body.history || [];
     const { role, id: userId, name: userName } = req.user;
 
-    if (!query || query.trim() === '') {
-      return res.status(400).json({ error: 'Query prompt is required.' });
+    if (!query || typeof query !== 'string' || query.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_QUERY',
+          message: 'Please provide a valid question or message.'
+        }
+      });
     }
 
+    const cleanQuery = query.trim();
+
     // STEP 1: Check Cache
-    const cacheKey = getCacheKey('assistant', userId, query);
+    const cacheKey = getCacheKey('assistant', userId, cleanQuery);
     const cachedResponse = getCachedAI(cacheKey);
-    if (cachedResponse) {
-      console.log(`[AI CACHE HIT] query: "${query}" | user_id: ${userId}`);
+    if (cachedResponse && (!history || history.length === 0)) {
+      console.log(`[AI CACHE HIT] query: "${cleanQuery}" | user_id: ${userId}`);
       return res.json(cachedResponse);
     }
 
@@ -266,10 +285,10 @@ router.post('/assistant', authenticateToken, async (req, res) => {
     }
 
     // STEP 3: Call Hybrid Intelligence Orchestrator
-    const platformContext = getRoleContextData(req.user, disaster_id, query);
-    const aiResult = await disasterAssistantQuery(query, role, platformContext, userName);
+    const platformContext = getRoleContextData(req.user, disaster_id, cleanQuery);
+    const aiResult = await disasterAssistantQuery(cleanQuery, role, platformContext, userName, history);
 
-    if (aiResult && aiResult.answer) {
+    if (aiResult && aiResult.answer && (!history || history.length === 0) && aiResult.intent !== 'GENERAL_CONVERSATION') {
       setCachedAI(cacheKey, aiResult);
     }
     res.json(aiResult);
@@ -288,7 +307,7 @@ router.post('/assistant', authenticateToken, async (req, res) => {
       success: false,
       error: {
         code: error.category || 'AI_UNAVAILABLE',
-        message: 'AI assistance is temporarily unavailable. Please click Retry.'
+        message: 'SANKALP AI is temporarily unavailable. Please click Retry.'
       }
     });
   }
@@ -321,7 +340,7 @@ router.post('/team-skill-gap', authenticateToken, async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error('Team skill gap error:', error.message);
-    res.status(500).json({ error: 'AI Team Skill Gap Analysis failed.', message: 'AI assistance is temporarily unavailable. Please try again shortly.' });
+    res.status(500).json({ error: 'AI Team Skill Gap Analysis failed.', message: 'SANKALP AI is temporarily unavailable. Please try again shortly.' });
   }
 });
 
@@ -357,7 +376,7 @@ router.post('/proposal-analysis', authenticateToken, async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error('AI proposal analysis error:', error.message);
-    res.status(500).json({ error: 'AI Proposal Analysis failed.', message: 'AI assistance is temporarily unavailable. Please try again shortly.' });
+    res.status(500).json({ error: 'AI Proposal Analysis failed.', message: 'SANKALP AI is temporarily unavailable. Please try again shortly.' });
   }
 });
 
@@ -384,7 +403,7 @@ router.get('/impact-analysis', authenticateToken, async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error('AI impact analysis error:', error.message);
-    res.status(500).json({ error: 'AI Impact Analysis failed.', message: 'AI assistance is temporarily unavailable. Please try again shortly.' });
+    res.status(500).json({ error: 'AI Impact Analysis failed.', message: 'SANKALP AI is temporarily unavailable. Please try again shortly.' });
   }
 });
 

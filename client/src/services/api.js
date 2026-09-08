@@ -160,8 +160,8 @@ export const api = {
   healthCheck: () => request('/health', { timeoutMs: 5000 }),
 
   // Centralized AI Service Endpoints (configured with 30s timeout for cold start resiliency)
-  chatAI: (query) => request('/ai/chat', { method: 'POST', body: JSON.stringify({ query }), timeoutMs: 30000 }),
-  queryAIAssistant: (data) => request('/ai/assistant', { method: 'POST', body: JSON.stringify(data), timeoutMs: 30000 }),
+  chatAI: (data) => typeof data === 'string' ? request('/ai/chat', { method: 'POST', body: JSON.stringify({ query: data }), timeoutMs: 30000 }) : request('/ai/chat', { method: 'POST', body: JSON.stringify(data), timeoutMs: 30000 }),
+  queryAIAssistant: (data) => typeof data === 'string' ? request('/ai/assistant', { method: 'POST', body: JSON.stringify({ query: data }), timeoutMs: 30000 }) : request('/ai/assistant', { method: 'POST', body: JSON.stringify(data), timeoutMs: 30000 }),
   analyzeTeamSkillGap: (data) => request('/ai/team-skill-gap', { method: 'POST', body: JSON.stringify(data), timeoutMs: 30000 }),
   analyzeProposals: (data) => request('/ai/proposal-analysis', { method: 'POST', body: JSON.stringify(data), timeoutMs: 30000 }),
   getImpactAIAnalysis: () => request('/ai/impact-analysis', { timeoutMs: 30000 })

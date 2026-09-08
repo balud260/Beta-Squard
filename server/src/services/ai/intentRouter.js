@@ -1,21 +1,37 @@
 /**
  * Centralized Intent & Source Router
- * Classifies user questions into four distinct intent categories:
- * 1. APPLICATION_DATA  -> SANKALP SQLite Database Facts (0 LLM quota used)
- * 2. LIVE_WEB          -> Real-world current events, news, weather, sports, recent incidents (Live Web Search + GPT-5.6 Luna)
- * 3. GENERAL_KNOWLEDGE -> Concepts, science, definitions, coding (GPT-5.6 Luna direct)
- * 4. HYBRID             -> Real-world news + SANKALP capabilities/teams (Web Search + SANKALP SQLite + GPT-5.6 Luna)
+ * Classifies user questions into five distinct intent categories:
+ * 1. GENERAL_CONVERSATION -> Casual greetings, thanks, identity/capability questions (Instant SANKALP AI response)
+ * 2. APPLICATION_DATA       -> SANKALP SQLite Database Facts (0 LLM quota used)
+ * 3. LIVE_WEB               -> Real-world current events, news, weather, sports, recent incidents (Live Web Search + GPT-5.6 Luna)
+ * 4. GENERAL_KNOWLEDGE      -> Concepts, science, definitions, coding (GPT-5.6 Luna direct)
+ * 5. HYBRID                  -> Real-world news + SANKALP capabilities/teams (Web Search + SANKALP SQLite + GPT-5.6 Luna)
  */
 
 function classifyQuestionIntent(questionText, userRole = '', contextData = {}) {
   const q = (questionText || '').toLowerCase().trim();
+
+  // 1. GENERAL_CONVERSATION: Greetings, thanks, capability/identity inquiries
+  const isExactGreeting = ['hey', 'hello', 'hi', 'hey there', 'hello there', 'hi there', 'greetings', 'good morning', 'good afternoon', 'good evening', 'yo', 'sup'].includes(q);
+  const isGreetingPrefix = /^(hey|hello|hi|greetings|good morning|good afternoon|good evening)\b/i.test(q) && q.length < 25;
+  const isThanks = ['thanks', 'thank you', 'thanks a lot', 'thank you so much', 'thx', 'cheers'].includes(q);
+  const isCapabilityQuery = ['what can you do', 'what can you do?', 'who are you', 'who are you?', 'what are your capabilities', 'what are your capabilities?', 'help', 'help me', 'how can you help me', 'how can you help me?'].includes(q);
+
+  if (isExactGreeting || isGreetingPrefix || isThanks || isCapabilityQuery) {
+    return {
+      intent: 'GENERAL_CONVERSATION',
+      reason: 'Casual conversation, greeting, acknowledgment, or capability inquiry.',
+      requiresWebSearch: false,
+      requiresApplicationData: false
+    };
+  }
 
   // Keyword indicators for Live Web Search
   const liveWebKeywords = [
     'nepal', 'flood', 'earthquake', 'cyclone', 'tsunami', 'disaster in', 'incident in',
     'latest news', 'breaking news', 'news on', 'current news', 'recent event', 'recent news',
     'ai news', 'tech news', 'cricket', 'match', 'election', 'who won', 'weather in',
-    'what is happening in', 'recent incident', 'ongoing conflict', 'today news'
+    'what is happening in', 'what is happening', 'recent incident', 'ongoing conflict', 'today news'
   ];
 
   // Temporal indicators requiring fresh live data
@@ -55,23 +71,6 @@ function classifyQuestionIntent(questionText, userRole = '', contextData = {}) {
     };
   }
 
-  // General concept / educational / coding questions -> GENERAL_KNOWLEDGE
-  const generalKnowledgeKeywords = [
-    'what is', 'explain', 'how does', 'difference between', 'who invented',
-    'definition', 'python example', 'code example', 'tutorial', 'meaning of'
-  ];
-
-  const hasGeneralKnowledgeKeyword = generalKnowledgeKeywords.some(kw => q.includes(kw));
-  
-  if (hasGeneralKnowledgeKeyword && !hasApplicationKeyword && !hasLiveWebKeyword) {
-    return {
-      intent: 'GENERAL_KNOWLEDGE',
-      reason: 'Question asks for general concepts, definitions, or technical knowledge.',
-      requiresWebSearch: false,
-      requiresApplicationData: false
-    };
-  }
-
   // Explicit SANKALP application database facts -> APPLICATION_DATA
   if (
     q.includes('universit') ||
@@ -89,6 +88,23 @@ function classifyQuestionIntent(questionText, userRole = '', contextData = {}) {
       reason: 'Question targets live SANKALP application operational database facts.',
       requiresWebSearch: false,
       requiresApplicationData: true
+    };
+  }
+
+  // General concept / educational / coding questions -> GENERAL_KNOWLEDGE
+  const generalKnowledgeKeywords = [
+    'what is', 'explain', 'how does', 'difference between', 'who invented',
+    'definition', 'python example', 'code example', 'tutorial', 'meaning of'
+  ];
+
+  const hasGeneralKnowledgeKeyword = generalKnowledgeKeywords.some(kw => q.includes(kw));
+  
+  if (hasGeneralKnowledgeKeyword && !hasApplicationKeyword && !hasLiveWebKeyword) {
+    return {
+      intent: 'GENERAL_KNOWLEDGE',
+      reason: 'Question asks for general concepts, definitions, or technical knowledge.',
+      requiresWebSearch: false,
+      requiresApplicationData: false
     };
   }
 

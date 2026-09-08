@@ -18,7 +18,7 @@ export default function FloatingAIAssistant() {
     }
   }, [messages, loading]);
 
-  // Non-blocking silent backend warm-up ping on mount to mitigate Render cold starts
+  // Non-blocking silent backend warm-up ping on mount
   useEffect(() => {
     api.healthCheck().catch(() => {});
   }, []);
@@ -26,20 +26,20 @@ export default function FloatingAIAssistant() {
   if (!user) return null;
 
   const getRoleTitle = (role) => {
-    if (role === 'GOVERNMENT') return 'SANKALP AI Assistant • Role: Government';
-    if (role === 'PROBLEM_OWNER') return 'SANKALP AI Assistant • Role: Problem Owner';
-    if (role === 'UNIVERSITY_ADMIN' || role === 'FACULTY') return 'SANKALP AI Assistant • Role: University';
-    if (role === 'STUDENT') return 'SANKALP AI Assistant • Role: Student Responder';
+    if (role === 'GOVERNMENT') return 'SANKALP AI Assistant • Government Command';
+    if (role === 'PROBLEM_OWNER') return 'SANKALP AI Assistant • Problem Owner';
+    if (role === 'UNIVERSITY_ADMIN' || role === 'FACULTY') return 'SANKALP AI Assistant • University';
+    if (role === 'STUDENT') return 'SANKALP AI Assistant • Student Responder';
     return 'SANKALP AI Assistant';
   };
 
   const getRoleQuestions = (role) => {
     if (role === 'GOVERNMENT') {
       return [
-        'What disasters are currently active?',
-        'Which response requirements are unfilled?',
         'Which universities are responding?',
-        'Which hospitals are near capacity?'
+        'How many active challenges do we have?',
+        'Do you know about the recent Nepal flood incident?',
+        'Which shelter should we use if the current one is full?'
       ];
     } else if (role === 'PROBLEM_OWNER') {
       return [
@@ -107,13 +107,24 @@ export default function FloatingAIAssistant() {
   }
 
   async function handleSendQuery(textToSend, isRetry = false) {
-    const promptText = textToSend || query;
-    if (!promptText || promptText.trim() === '') return;
+    if (loading) return; // Duplicate submission protection
+
+    const promptText = (textToSend !== undefined ? textToSend : query).trim();
+    if (!promptText) return;
+
+    // Prepare conversation history context
+    const historyPayload = messages
+      .filter(m => m.status !== 'error')
+      .slice(-6)
+      .map(m => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.text
+      }));
 
     if (!isRetry) {
       const userMsg = { id: Date.now(), sender: 'user', text: promptText };
       setMessages((prev) => [...prev, userMsg]);
-      if (!textToSend) setQuery('');
+      setQuery('');
     } else {
       setMessages((prev) => prev.filter((m) => m.status !== 'error'));
     }
@@ -122,7 +133,7 @@ export default function FloatingAIAssistant() {
     setLastFailedQuery(null);
 
     try {
-      const res = await api.chatAI(promptText);
+      const res = await api.chatAI({ query: promptText, history: historyPayload });
       const botMsg = {
         id: Date.now() + 1,
         sender: 'bot',
@@ -138,7 +149,7 @@ export default function FloatingAIAssistant() {
       const fallbackMsg = {
         id: Date.now() + 1,
         sender: 'bot',
-        text: err.message || 'AI assistant is temporarily unavailable. Please click Retry.',
+        text: err.message || 'SANKALP AI is temporarily unavailable. Please click Retry.',
         status: 'error'
       };
       setMessages((prev) => [...prev, fallbackMsg]);
@@ -186,9 +197,9 @@ export default function FloatingAIAssistant() {
       {/* Floating Compact Assistant Drawer */}
       {isOpen && (
         <div style={{
-          width: '400px',
+          width: '420px',
           maxWidth: 'calc(100vw - 32px)',
-          height: '540px',
+          height: '560px',
           maxHeight: 'calc(100vh - 100px)',
           backgroundColor: '#ffffff',
           borderRadius: 'var(--radius-lg)',
@@ -216,6 +227,9 @@ export default function FloatingAIAssistant() {
                 <div style={{ fontWeight: 700, fontSize: '13px', lineHeight: 1.1 }}>
                   {getRoleTitle(user.role)}
                 </div>
+                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>
+                  Powered by GPT-5.6 Luna &amp; Real-Time Data
+                </div>
               </div>
             </div>
             <button
@@ -235,7 +249,10 @@ export default function FloatingAIAssistant() {
                 <Bot size={14} />
               </div>
               <div style={{ backgroundColor: '#ffffff', padding: '10px 14px', borderRadius: '10px', fontSize: '13px', border: '1px solid var(--border-light)', color: 'var(--text-dark)', maxWidth: '88%' }}>
-                Hi <strong>{user.name}</strong>! I am your AI Assistant. Ask any question regarding active challenges, proposals, or disaster response.
+                <div style={{ fontWeight: 700, fontSize: '11px', color: 'var(--terracotta)', marginBottom: '4px' }}>
+                  🤖 SANKALP AI
+                </div>
+                Hi <strong>{user.name}</strong>! How can I assist you today? Ask about active challenges, university responses, shelter capacities, or real-world events.
               </div>
             </div>
 
@@ -248,6 +265,7 @@ export default function FloatingAIAssistant() {
                 {suggestedQuestions.map((q, idx) => (
                   <button
                     key={idx}
+                    disabled={loading}
                     onClick={() => handleSendQuery(q)}
                     style={{
                       textAlign: 'left',
@@ -266,7 +284,7 @@ export default function FloatingAIAssistant() {
               </div>
             )}
 
-            {/* Messages */}
+            {/* Messages Stream */}
             {messages.map((m) => (
               <div
                 key={m.id}
@@ -293,12 +311,22 @@ export default function FloatingAIAssistant() {
                   maxWidth: '88%',
                   lineHeight: 1.45
                 }}>
-                  {m.dataOrigin && (
-                    <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: m.dataOrigin.includes('LIVE') ? '#0284c7' : m.dataOrigin.includes('HYBRID') ? '#7c3aed' : 'var(--status-success)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      {m.dataOrigin.includes('LIVE') ? '🌐 LIVE WEB' : m.dataOrigin.includes('HYBRID') ? '⚡ HYBRID INTELLIGENCE' : '📊 SANKALP DATA'} {m.freshness ? `• ${m.freshness}` : ''}
+                  {/* Assistant Identity Banner */}
+                  {m.sender === 'bot' && m.status !== 'error' && (
+                    <div style={{ fontWeight: 700, fontSize: '11px', color: 'var(--terracotta)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      🤖 SANKALP AI
                     </div>
                   )}
+
+                  {/* Data Source Badge (Secondary Metadata Only) */}
+                  {m.dataOrigin && (
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: m.dataOrigin.includes('LIVE') ? '#0284c7' : m.dataOrigin.includes('HYBRID') ? '#7c3aed' : 'var(--status-success)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      [{m.dataOrigin}] {m.freshness ? `• ${m.freshness}` : ''}
+                    </div>
+                  )}
+
                   {renderCleanMessageContent(m.text)}
+
                   {m.sources && m.sources.length > 0 && (
                     <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid var(--border-subtle)', fontSize: '11px', color: 'var(--text-muted)' }}>
                       <div style={{ fontWeight: 600, marginBottom: '3px' }}>Retrieved Sources:</div>
@@ -309,6 +337,7 @@ export default function FloatingAIAssistant() {
                       ))}
                     </div>
                   )}
+
                   {m.status === 'error' && lastFailedQuery && (
                     <div style={{ marginTop: '8px' }}>
                       <button
@@ -332,7 +361,7 @@ export default function FloatingAIAssistant() {
 
             {loading && (
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12.5px', padding: '4px 8px' }}>
-                <RefreshCw size={14} className="spin" /> Analyzing incident &amp; current SANKALP data...
+                <RefreshCw size={14} className="spin" /> SANKALP AI is thinking...
               </div>
             )}
 
@@ -347,9 +376,10 @@ export default function FloatingAIAssistant() {
             >
               <input
                 type="text"
-                placeholder="Ask AI Assistant..."
+                placeholder="Ask SANKALP AI..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                disabled={loading}
                 style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '13px' }}
               />
               <button

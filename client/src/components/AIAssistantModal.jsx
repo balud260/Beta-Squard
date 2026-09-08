@@ -7,14 +7,15 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
   const [messages, setMessages] = useState([
     {
       sender: 'ai',
-      text: 'Hello Commander. I am SANKALP AI Command Assistant. I am grounded in current SANKALP platform data across District X active disasters, hospital capacities, university volunteers, and submitted proposals. How can I assist your command decisions today?',
-      grounded: true
+      text: 'Hello Commander. I am SANKALP AI. I am grounded in current SANKALP platform data across District X active disasters, hospital capacities, university volunteers, and submitted proposals. How can I assist your command decisions today?',
+      grounded: true,
+      dataOrigin: 'SANKALP DATA'
     }
   ]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  // Non-blocking silent backend warm-up ping on mount to mitigate Render cold starts
+  // Non-blocking silent backend warm-up ping on mount
   useEffect(() => {
     if (isOpen) {
       api.healthCheck().catch(() => {});
@@ -29,7 +30,7 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
     { label: 'Hospital Pressure', prompt: 'Which hospitals are under pressure or near capacity?' },
     { label: 'University Response', prompt: 'Which universities are currently helping with emergency response?' },
     { label: 'Solutions Under Review', prompt: 'Which university proposals are currently under review?' },
-    { label: 'Disaster Summary', prompt: 'Summarize the current disaster situation and immediate priorities.' }
+    { label: 'Nepal Flood Situation', prompt: 'Do you know about the recent Nepal flood incident?' }
   ];
 
   function formatCleanText(rawText) {
@@ -72,15 +73,26 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
   }
 
   const handleSend = async (textToSend, isRetry = false) => {
-    const promptText = textToSend || query;
-    if (!promptText.trim() || loading) return;
+    if (loading) return; // Prevent duplicate request submission
+
+    const promptText = (textToSend !== undefined ? textToSend : query).trim();
+    if (!promptText) return;
 
     setErrorMsg(null);
+
+    const historyPayload = messages
+      .filter(m => !m.isError)
+      .slice(-6)
+      .map(m => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.text
+      }));
+
     let updatedMsgs = messages;
     if (!isRetry) {
       updatedMsgs = [...messages, { sender: 'user', text: promptText }];
       setMessages(updatedMsgs);
-      if (!textToSend) setQuery('');
+      setQuery('');
     } else {
       updatedMsgs = messages.filter(m => !m.isError);
       setMessages(updatedMsgs);
@@ -88,7 +100,7 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
     setLoading(true);
 
     try {
-      const res = await api.queryAIAssistant({ query: promptText, disaster_id: disasterId });
+      const res = await api.queryAIAssistant({ query: promptText, disaster_id: disasterId, history: historyPayload });
       setMessages([
         ...updatedMsgs,
         {
@@ -102,12 +114,12 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
       ]);
     } catch (err) {
       console.error('AI Command Assistant error:', err);
-      setErrorMsg(err.message || 'AI Command Assistant is temporarily unavailable. Please click Retry.');
+      setErrorMsg(err.message || 'SANKALP AI is temporarily unavailable. Please click Retry.');
       setMessages([
         ...updatedMsgs,
         {
           sender: 'ai',
-          text: 'Unable to process command query against platform data at this time.',
+          text: 'Unable to process query at this time. SANKALP AI is temporarily unavailable.',
           isError: true
         }
       ]);
@@ -147,10 +159,10 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
               </div>
               <div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--navy)', margin: 0 }}>
-                  Government AI Command Assistant
+                  SANKALP AI Assistant
                 </h3>
                 <div style={{ fontSize: '0.75rem', color: 'var(--status-success)', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600, marginTop: '2px' }}>
-                  <CheckCircle2 size={13} /> Based on current application data
+                  <CheckCircle2 size={13} /> Real-time Platform &amp; Live World Intelligence
                 </div>
               </div>
             </div>
@@ -215,10 +227,30 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
                 lineHeight: 1.55
               }}
             >
+              {/* Assistant Identity */}
+              {m.sender === 'ai' && !m.isError && (
+                <div style={{ fontWeight: 700, fontSize: '0.75rem', color: 'var(--navy)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  🤖 SANKALP AI
+                </div>
+              )}
+
+              {/* Data Source Badge (Secondary Metadata) */}
+              {m.dataOrigin && (
+                <div style={{ fontSize: '0.7rem', color: m.dataOrigin.includes('LIVE') ? '#0284c7' : m.dataOrigin.includes('HYBRID') ? '#7c3aed' : 'var(--status-success)', marginBottom: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  [{m.dataOrigin}] {m.freshness ? `• ${m.freshness}` : ''}
+                </div>
+              )}
+
               {renderCleanMessageContent(m.text)}
-              {m.grounded && (
-                <div style={{ fontSize: '0.7rem', color: m.sender === 'user' ? 'rgba(255,255,255,0.7)' : 'var(--status-success)', marginTop: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <CheckCircle2 size={10} /> Based on current application data
+
+              {m.sources && m.sources.length > 0 && (
+                <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid var(--border-subtle)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '3px' }}>Retrieved Sources:</div>
+                  {m.sources.map((s, sIdx) => (
+                    <div key={sIdx} style={{ marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      • <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--navy)', textDecoration: 'underline' }}>{s.source}: {s.title}</a>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -226,7 +258,7 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
 
           {loading && (
             <div style={{ alignSelf: 'flex-start', backgroundColor: '#ffffff', border: '1px solid var(--border-light)', padding: '0.85rem 1.1rem', borderRadius: '14px', fontSize: '0.85rem', color: 'var(--navy)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <RefreshCw size={14} className="spin" /> Analyzing command against current platform data...
+              <RefreshCw size={14} className="spin" /> SANKALP AI is thinking...
             </div>
           )}
 
