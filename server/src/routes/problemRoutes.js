@@ -220,6 +220,38 @@ router.get('/accepted', authenticateToken, (req, res) => {
 });
 
 /**
+ * GET /api/problems/recommended - Get AI Recommended Challenges for authenticated University
+ */
+router.get('/recommended', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN', 'FACULTY'), async (req, res) => {
+  try {
+    const univId = req.user.university_id || 1;
+    const university = db.prepare('SELECT * FROM universities WHERE id = ?').get(univId);
+
+    const availableProblems = db.prepare(`
+      SELECT p.*, o.name as organization_name
+      FROM problems p
+      LEFT JOIN users u_owner ON p.owner_id = u_owner.id
+      LEFT JOIN organizations o ON u_owner.organization_id = o.id
+      WHERE p.status = 'PUBLISHED'
+      ORDER BY p.created_at DESC
+      LIMIT 10
+    `).all();
+
+    res.json({
+      university,
+      recommendations: availableProblems.map((p, idx) => ({
+        ...p,
+        matchScore: Math.max(70, 96 - idx * 5),
+        recommendationReason: `High research alignment with ${university?.name || 'University'} capabilities in ${p.category}.`
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch recommended problems.' });
+  }
+});
+
+
+/**
  * POST /api/problems - Submit a new societal problem with AI Responsibility Routing
  */
 router.post('/', authenticateToken, authorizeRoles('PROBLEM_OWNER', 'GOVERNMENT'), async (req, res) => {
@@ -737,36 +769,5 @@ router.get('/:id/matches', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'AI University Matching failed.', details: error.message });
   }
 });
-
-/**
- * GET /api/problems/recommended - Get AI Recommended Challenges for authenticated University
- */
-router.get('/recommended', authenticateToken, authorizeRoles('UNIVERSITY_ADMIN', 'FACULTY'), async (req, res) => {
-  try {
-    const univId = req.user.university_id || 1;
-    const university = db.prepare('SELECT * FROM universities WHERE id = ?').get(univId);
-
-    const availableProblems = db.prepare(`
-      SELECT p.*, o.name as organization_name
-      FROM problems p
-      LEFT JOIN users u_owner ON p.owner_id = u_owner.id
-      LEFT JOIN organizations o ON u_owner.organization_id = o.id
-      WHERE p.status = 'PUBLISHED'
-      ORDER BY p.created_at DESC
-      LIMIT 10
-    `).all();
-
-    res.json({
-      university,
-      recommendations: availableProblems.map((p, idx) => ({
-        ...p,
-        matchScore: Math.max(70, 96 - idx * 5),
-        recommendationReason: `High research alignment with ${university?.name || 'University'} capabilities in ${p.category}.`
-      }))
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch recommended problems.' });
-  }
-});
-
 module.exports = router;
+
