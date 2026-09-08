@@ -7,11 +7,12 @@ const {
   handleRoleAwareChat,
   analyzeTeamSkillGap,
   compareProposals,
-  analyzeImpactMetrics
+  analyzeImpactMetrics,
+  handleDeterministicFactualQuery
 } = require('../services/aiService');
-const { getCachedAI, setCachedAI, getCacheKey } = require('../services/aiCache');
+const { getCachedAI, setCachedAI, getCacheKey } = require('../services/ai/aiCache');
 
-// Per-user cooldown tracker (enforces 3s minimum between Gemini calls per user)
+// Per-user cooldown tracker (enforces 3s minimum between AI calls per user)
 const userAiCooldown = new Map();
 
 function checkUserAiCooldown(userId) {
@@ -25,283 +26,7 @@ function checkUserAiCooldown(userId) {
 }
 
 /**
- * Hybrid Query Engine: Factual Deterministic DB Query Intent Handler
- * Intercepts common deterministic questions and answers directly from SQLite database facts
- * WITHOUT consuming Gemini API quota!
- */
-function handleDeterministicFactualQuery(queryText, role, user) {
-  const q = (queryText || '').toLowerCase().trim();
-
-  // 1. Universities responding
-  if (q.includes('universit') || q.includes('college') || q.includes('responding') || q.includes('institution')) {
-    const activeAcceptances = db.prepare(`
-      SELECT DISTINCT u.name, count(upa.id) as accepted_count
-      FROM university_problem_acceptances upa
-      JOIN universities u ON upa.university_id = u.id
-      WHERE upa.status = 'ACCEPTED'
-      GROUP BY u.name
-    `).all();
-
-    const proposalsSubmitted = db.prepare(`
-      SELECT DISTINCT u.name, count(pr.id) as proposal_count
-      FROM proposals pr
-      JOIN universities u ON pr.university_id = u.id
-      GROUP BY u.name
-    `).all();
-
-    if (activeAcceptances.length === 0 && proposalsSubmitted.length === 0) {
-      return {
-        answer: 'Currently, no universities have submitted active problem acceptances or proposals in the live platform feed.',
-        groundedDataUsed: true,
-        isDeterministic: true
-      };
-    }
-
-    const items = activeAcceptances.map(a => `${a.name} (${a.accepted_count} challenge${a.accepted_count > 1 ? 's' : ''} accepted)`);
-    proposalsSubmitted.forEach(p => {
-      if (!items.some(i => i.includes(p.name))) {
-        items.push(`${p.name} (${p.proposal_count} proposal${p.proposal_count > 1 ? 's' : ''} submitted)`);
-      }
-    });
-
-    if (items.length === 1) {
-      return {
-        answer: `Currently 1 university is actively responding on the platform: ${items[0]}.`,
-        groundedDataUsed: true,
-        isDeterministic: true
-      };
-    }
-
-    const formattedList = items.map(item => `• ${item}`).join('\n');
-    return {
-      answer: `Currently ${items.length} universities are actively responding on SANKALP platform:\n${formattedList}`,
-      groundedDataUsed: true,
-      isDeterministic: true
-    };
-  }
-
-  // 2. Hospitals near capacity / pressure
-  if (q.includes('hospital') || q.includes('bed') || q.includes('capacity') || q.includes('health center')) {
-    const hospitals = db.prepare(`
-      SELECT name, available_beds, total_beds, emergency_capacity, status
-      FROM hospitals
-    `).all();
-
-    const highPressure = hospitals.filter(h => h.status === 'HIGH_PRESSURE' || (h.available_beds / (h.total_beds || 1)) <= 0.3);
-
-    if (highPressure.length === 0) {
-      return {
-        answer: 'All monitored district hospitals are currently operating within normal capacity limits.',
-        groundedDataUsed: true,
-        isDeterministic: true
-      };
-    }
-
-    const items = highPressure.map(h => `${h.name}: ${h.available_beds}/${h.total_beds} beds available (${h.status.replace(/_/g, ' ')})`);
-    if (items.length === 1) {
-      return {
-        answer: `1 hospital is currently under operational pressure: ${items[0]}.`,
-        groundedDataUsed: true,
-        isDeterministic: true
-      };
-    }
-
-    const formattedList = items.map(item => `• ${item}`).join('\n');
-    return {
-      answer: `Currently ${items.length} hospitals are under operational pressure:\n${formattedList}`,
-      groundedDataUsed: true,
-      isDeterministic: true
-    };
-  }
-
-  // 3. Unfilled requirements
-  if (q.includes('requirement') || q.includes('unfilled') || q.includes('volunteer') || q.includes('responder')) {
-    const unfilled = db.prepare(`
-      SELECT dr.role_type, dr.required_count, dr.fulfilled_count, d.location
-      FROM disaster_requirements dr
-      JOIN disasters d ON dr.disaster_id = d.id
-      WHERE dr.fulfilled_count < dr.required_count
-    `).all();
-
-    if (unfilled.length === 0) {
-      return {
-        answer: 'All active emergency response volunteer requirements have been fully filled by university teams.',
-        groundedDataUsed: true,
-        isDeterministic: true
-      };
-    }
-
-    const items = unfilled.map(u => `${u.role_type} at ${u.location}: ${u.required_count - u.fulfilled_count} responders still needed (${u.fulfilled_count}/${u.required_count} confirmed)`);
-    if (items.length === 1) {
-      return {
-        answer: `1 emergency response requirement remains unfilled: ${items[0]}.`,
-        groundedDataUsed: true,
-        isDeterministic: true
-      };
-    }
-
-    const formattedList = items.map(item => `• ${item}`).join('\n');
-    return {
-      answer: `Currently ${items.length} emergency response requirements are unfilled:\n${formattedList}`,
-      groundedDataUsed: true,
-      isDeterministic: true
-    };
-  }
-
-  // 4. Critical problems
-  if (q.includes('critical') || q.includes('urgency') || q.includes('severe problem')) {
-    const criticalProblems = db.prepare(`
-      SELECT title, category, location, status
-      FROM problems
-      WHERE urgency = 'CRITICAL'
-    `).all();
-
-    if (criticalProblems.length === 0) {
-      return {
-        answer: 'There are currently no active problems flagged with critical urgency.',
-        groundedDataUsed: true,
-        isDeterministic: true
-      };
-    }
-
-    const items = criticalProblems.map(p => `${p.title} (${p.category}) - Location: ${p.location} [Status: ${p.status}]`);
-    if (items.length === 1) {
-      return {
-        answer: `1 societal problem is flagged with critical urgency: ${items[0]}.`,
-        groundedDataUsed: true,
-        isDeterministic: true
-      };
-    }
-
-    const formattedList = items.map(item => `• ${item}`).join('\n');
-    return {
-      answer: `Currently ${items.length} problems are flagged with critical urgency:\n${formattedList}`,
-      groundedDataUsed: true,
-      isDeterministic: true
-    };
-  }
-
-  // 5. Solutions under review / proposals under review
-  if (q.includes('solution') || q.includes('proposal') || q.includes('review') || q.includes('submission')) {
-    const pendingProposals = db.prepare(`
-      SELECT pr.summary, p.title as problem_title, u.name as university_name
-      FROM proposals pr
-      JOIN problems p ON pr.problem_id = p.id
-      JOIN universities u ON pr.university_id = u.id
-      WHERE pr.status = 'SUBMITTED'
-    `).all();
-
-    if (pendingProposals.length === 0) {
-      return {
-        answer: 'There are currently no university proposals awaiting government or problem-owner review.',
-        groundedDataUsed: true,
-        isDeterministic: true
-      };
-    }
-
-    const items = pendingProposals.map(p => `${p.problem_title} by ${p.university_name}: ${p.summary}`);
-    if (items.length === 1) {
-      return {
-        answer: `1 proposal is currently under review: ${items[0]}.`,
-        groundedDataUsed: true,
-        isDeterministic: true
-      };
-    }
-
-    const formattedList = items.map(item => `• ${item}`).join('\n');
-    return {
-      answer: `Currently ${items.length} university proposals are under review:\n${formattedList}`,
-      groundedDataUsed: true,
-      isDeterministic: true
-    };
-  }
-
-  // 6. Relocation centers full / redirect
-  if (q.includes('relocation') || q.includes('shelter') || q.includes('redirect') || q.includes('full center')) {
-    const fullSites = db.prepare(`
-      SELECT rs.*, d.title as disaster_title
-      FROM relocation_sites rs
-      JOIN disasters d ON rs.disaster_id = d.id
-      WHERE rs.status = 'FULL' OR (rs.current_occupancy >= rs.capacity AND rs.capacity > 0)
-    `).all();
-
-    const availableSites = db.prepare(`
-      SELECT rs.*, d.title as disaster_title
-      FROM relocation_sites rs
-      JOIN disasters d ON rs.disaster_id = d.id
-      WHERE (rs.current_occupancy < rs.capacity OR rs.capacity = 0) AND rs.status != 'FULL'
-      ORDER BY (rs.capacity - rs.current_occupancy) DESC, rs.score DESC
-    `).all();
-
-    if (q.includes('redirect') || q.includes('where should')) {
-      if (fullSites.length === 0) {
-        return {
-          answer: 'All relocation sites currently have open capacity. No active re-routing is required at this moment.',
-          groundedDataUsed: true,
-          isDeterministic: true
-        };
-      }
-      const fullSiteNames = fullSites.map(s => s.name).join(', ');
-      const bestTarget = availableSites[0];
-      if (bestTarget) {
-        const spotsLeft = Math.max(0, bestTarget.capacity - bestTarget.current_occupancy);
-        return {
-          answer: `Full center detected (${fullSiteNames}). Responders and evacuees should be redirected to ${bestTarget.name} (${bestTarget.hospital_distance_km} km away, ${spotsLeft.toLocaleString()} available spots remaining).`,
-          groundedDataUsed: true,
-          isDeterministic: true
-        };
-      } else {
-        return {
-          answer: `Full center detected (${fullSiteNames}). All current secondary sites are near capacity. Immediate activation of new emergency shelter nodes recommended.`,
-          groundedDataUsed: true,
-          isDeterministic: true
-        };
-      }
-    }
-
-    if (fullSites.length === 0) {
-      return {
-        answer: 'None of the monitored relocation centers are currently full. All centers have available capacity.',
-        groundedDataUsed: true,
-        isDeterministic: true
-      };
-    }
-
-    const items = fullSites.map(s => `${s.name} (${s.location}): FULL (${s.current_occupancy}/${s.capacity} occupied)`);
-    const formattedList = items.map(item => `• ${item}`).join('\n');
-    return {
-      answer: `Currently ${items.length} relocation center${items.length > 1 ? 's are' : ' is'} at maximum capacity:\n${formattedList}`,
-      groundedDataUsed: true,
-      isDeterministic: true
-    };
-  }
-
-  // 7. Disaster response summary
-  if (q.includes('disaster response summary') || q.includes('disaster summary') || q.includes('incident summary')) {
-    const disaster = db.prepare('SELECT * FROM disasters WHERE status = "RESPONSE_ACTIVE" ORDER BY id DESC LIMIT 1').get();
-    if (!disaster) {
-      return {
-        answer: 'There are currently no active disaster response operations in the district.',
-        groundedDataUsed: true,
-        isDeterministic: true
-      };
-    }
-
-    const reqs = db.prepare('SELECT count(*) as total, sum(required_count) as req_vol, sum(fulfilled_count) as ful_vol FROM disaster_requirements WHERE disaster_id = ?').get(disaster.id);
-    const sites = db.prepare('SELECT count(*) as total, sum(capacity) as cap, sum(current_occupancy) as occ FROM relocation_sites WHERE disaster_id = ?').get(disaster.id);
-
-    return {
-      answer: `Disaster Summary for ${disaster.title}:\n• Location: ${disaster.location}\n• Severity: ${disaster.severity}\n• Affected Population: ${disaster.affected_population?.toLocaleString() || '45,000'} residents (${disaster.vulnerable_population?.toLocaleString() || '8,500'} vulnerable)\n• Responders: ${reqs?.ful_vol || 0} / ${reqs?.req_vol || 0} deployed\n• Relocation Sites: ${sites?.occ || 0} / ${sites?.cap || 0} total capacity occupied across ${sites?.total || 0} centers.`,
-      groundedDataUsed: true,
-      isDeterministic: true
-    };
-  }
-
-  return null;
-}
-
-/**
- * Helper function to build minimal, topic-routed operational platform context for Gemini AI
+ * Helper function to build minimal, topic-routed operational platform context for AI
  */
 function getRoleContextData(user, disasterId = null, queryText = '') {
   const { role, id: userId, name: userName, university_id } = user;
@@ -316,7 +41,6 @@ function getRoleContextData(user, disasterId = null, queryText = '') {
 
   const disasterIdToUse = activeDisaster ? activeDisaster.id : 1;
 
-  // Topic-routed context selection
   let relocationSites = [];
   let requirements = [];
   let hospitals = [];
@@ -446,10 +170,10 @@ router.post('/chat', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Query string is required.' });
     }
 
-    // STEP 1: Check Deterministic Hybrid Query Engine (DB Facts - 0 Gemini Quota!)
+    // STEP 1: Check Deterministic Hybrid Query Engine (SQLite Facts - 0 AI Quota!)
     const deterministicResult = handleDeterministicFactualQuery(query, role, req.user);
     if (deterministicResult) {
-      console.log(`[AI HYBRID] query: "${query}" | routed_to: SQLITE_DATABASE_DETERMINISTIC | gemini_quota_used: 0`);
+      console.log(`[AI HYBRID] query: "${query}" | routed_to: SQLITE_DATABASE_DETERMINISTIC | llm_quota_used: 0`);
       return res.json(deterministicResult);
     }
 
@@ -457,7 +181,7 @@ router.post('/chat', authenticateToken, async (req, res) => {
     const cacheKey = getCacheKey('chat', userId, query);
     const cachedResponse = getCachedAI(cacheKey);
     if (cachedResponse) {
-      console.log(`[AI CACHE HIT] query: "${query}" | user_id: ${userId} | gemini_quota_used: 0`);
+      console.log(`[AI CACHE HIT] query: "${query}" | user_id: ${userId} | llm_quota_used: 0`);
       return res.json(cachedResponse);
     }
 
@@ -472,7 +196,7 @@ router.post('/chat', authenticateToken, async (req, res) => {
       });
     }
 
-    // STEP 4: Call Gemini for Complex Reasoning / Summarization
+    // STEP 4: Call AI Router (Primary GPT-5.6 Luna -> Gemini Fallback)
     const contextData = getRoleContextData(req.user, null, query);
     const result = await handleRoleAwareChat(query, role, contextData, userName);
 
@@ -488,7 +212,7 @@ router.post('/chat', authenticateToken, async (req, res) => {
         success: false,
         error: {
           code: 'AI_RATE_LIMITED',
-          message: 'Gemini AI usage limit reached. Please wait a moment before trying again.'
+          message: 'AI usage limit reached. Please wait a moment before trying again.'
         }
       });
     }
@@ -496,8 +220,8 @@ router.post('/chat', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: {
-        code: error.category || 'AI_INTERNAL_ERROR',
-        message: 'AI Assistant is temporarily unavailable. Please click Retry.'
+        code: error.category || 'AI_UNAVAILABLE',
+        message: 'AI assistance is temporarily unavailable. Please try again shortly.'
       }
     });
   }
@@ -519,7 +243,7 @@ router.post('/assistant', authenticateToken, async (req, res) => {
     // STEP 1: Check Deterministic Hybrid Query Engine
     const deterministicResult = handleDeterministicFactualQuery(query, role, req.user);
     if (deterministicResult) {
-      console.log(`[AI HYBRID] query: "${query}" | routed_to: SQLITE_DATABASE_DETERMINISTIC | gemini_quota_used: 0`);
+      console.log(`[AI HYBRID] query: "${query}" | routed_to: SQLITE_DATABASE_DETERMINISTIC | llm_quota_used: 0`);
       return res.json(deterministicResult);
     }
 
@@ -527,7 +251,7 @@ router.post('/assistant', authenticateToken, async (req, res) => {
     const cacheKey = getCacheKey('assistant', userId, query);
     const cachedResponse = getCachedAI(cacheKey);
     if (cachedResponse) {
-      console.log(`[AI CACHE HIT] query: "${query}" | user_id: ${userId} | gemini_quota_used: 0`);
+      console.log(`[AI CACHE HIT] query: "${query}" | user_id: ${userId} | llm_quota_used: 0`);
       return res.json(cachedResponse);
     }
 
@@ -542,7 +266,7 @@ router.post('/assistant', authenticateToken, async (req, res) => {
       });
     }
 
-    // STEP 4: Call Gemini
+    // STEP 4: Call AI Router (Primary GPT-5.6 Luna -> Gemini Fallback)
     const platformContext = getRoleContextData(req.user, disaster_id, query);
     const aiResult = await disasterAssistantQuery(query, role, platformContext, userName);
 
@@ -555,15 +279,15 @@ router.post('/assistant', authenticateToken, async (req, res) => {
         success: false,
         error: {
           code: 'AI_RATE_LIMITED',
-          message: 'Gemini AI usage limit reached. Please wait a moment before trying again.'
+          message: 'AI usage limit reached. Please wait a moment before trying again.'
         }
       });
     }
     res.status(500).json({
       success: false,
       error: {
-        code: error.category || 'AI_INTERNAL_ERROR',
-        message: 'AI Assistant is temporarily unavailable. Please click Retry.'
+        code: error.category || 'AI_UNAVAILABLE',
+        message: 'AI assistance is temporarily unavailable. Please try again shortly.'
       }
     });
   }
@@ -596,7 +320,7 @@ router.post('/team-skill-gap', authenticateToken, async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error('Team skill gap error:', error.message);
-    res.status(500).json({ error: 'AI Team Skill Gap Analysis failed.', details: error.message });
+    res.status(500).json({ error: 'AI Team Skill Gap Analysis failed.', message: 'AI assistance is temporarily unavailable. Please try again shortly.' });
   }
 });
 
@@ -632,7 +356,7 @@ router.post('/proposal-analysis', authenticateToken, async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error('AI proposal analysis error:', error.message);
-    res.status(500).json({ error: 'AI Proposal Analysis failed.', details: error.message });
+    res.status(500).json({ error: 'AI Proposal Analysis failed.', message: 'AI assistance is temporarily unavailable. Please try again shortly.' });
   }
 });
 
@@ -659,7 +383,7 @@ router.get('/impact-analysis', authenticateToken, async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error('AI impact analysis error:', error.message);
-    res.status(500).json({ error: 'AI Impact Analysis failed.', details: error.message });
+    res.status(500).json({ error: 'AI Impact Analysis failed.', message: 'AI assistance is temporarily unavailable. Please try again shortly.' });
   }
 });
 

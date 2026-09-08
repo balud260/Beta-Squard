@@ -147,7 +147,7 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
                   Government AI Command Assistant
                 </h3>
                 <div style={{ fontSize: '0.75rem', color: 'var(--status-success)', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600, marginTop: '2px' }}>
-                  <CheckCircle2 size={13} /> Grounded in Current SANKALP Data
+                  <CheckCircle2 size={13} /> Based on current application data
                 </div>
               </div>
             </div>
@@ -215,7 +215,7 @@ export default function AIAssistantModal({ isOpen = true, onClose, disasterId = 
               {renderCleanMessageContent(m.text)}
               {m.grounded && (
                 <div style={{ fontSize: '0.7rem', color: m.sender === 'user' ? 'rgba(255,255,255,0.7)' : 'var(--status-success)', marginTop: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <CheckCircle2 size={10} /> Grounded in Current SANKALP Data
+                  <CheckCircle2 size={10} /> Based on current application data
                 </div>
               )}
             </div>

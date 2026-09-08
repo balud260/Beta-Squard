@@ -1,14 +1,15 @@
-const geminiService = require('./geminiService');
+const aiRouter = require('./ai/aiRouter');
 
 module.exports = {
-  analyzeProblem: geminiService.analyzeProblemAI,
-  matchUniversities: geminiService.matchUniversitiesAI,
-  analyzeDisaster: geminiService.analyzeDisasterAI,
-  analyzeDisasterIncident: geminiService.analyzeDisasterAI,
-  evaluateRelocationSites: geminiService.evaluateRelocationSitesAI,
-  analyzeTeamSkillGap: geminiService.analyzeTeamSkillGapAI,
-  compareProposals: geminiService.compareProposalsAI,
-  analyzeImpactMetrics: geminiService.analyzeImpactMetricsAI,
-  disasterAssistantQuery: geminiService.handleRoleAwareChatAI,
-  handleRoleAwareChat: geminiService.handleRoleAwareChatAI
+  analyzeProblem: aiRouter.analyzeProblemAI,
+  matchUniversities: aiRouter.matchUniversitiesAI,
+  analyzeDisaster: aiRouter.analyzeDisasterAI,
+  analyzeDisasterIncident: aiRouter.analyzeDisasterAI,
+  evaluateRelocationSites: aiRouter.evaluateRelocationSitesAI,
+  analyzeTeamSkillGap: aiRouter.analyzeTeamSkillGapAI,
+  compareProposals: aiRouter.compareProposalsAI,
+  analyzeImpactMetrics: aiRouter.analyzeImpactMetricsAI,
+  disasterAssistantQuery: aiRouter.handleRoleAwareChatAI,
+  handleRoleAwareChat: aiRouter.handleRoleAwareChatAI,
+  handleDeterministicFactualQuery: aiRouter.handleDeterministicFactualQuery
 };

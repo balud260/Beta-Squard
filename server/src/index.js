@@ -94,15 +94,16 @@ app.use((err, req, res, next) => {
 
 async function startServer() {
   await db.initPromise;
-  const geminiService = require('./services/geminiService');
-  const genAI = geminiService.getGenAIClient();
-  const hasGeminiKey = Boolean(genAI);
+  const hasExperientialKey = Boolean(process.env.EXPERIENTIAL_API_KEY);
+  const experientialModel = process.env.EXPERIENTIAL_MODEL || 'gpt-5.6-luna';
+  const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY);
 
   app.listen(PORT, () => {
     console.log(`=======================================================`);
     console.log(`  SANKALP AI Backend API running on port ${PORT}`);
     console.log(`  Database: Pure JS SQLite (solvelink.db) Initialized`);
-    console.log(`  Gemini AI Engine: ${hasGeminiKey ? 'INITIALIZED & READY (gemini-3.6-flash)' : 'MISSING (Check GEMINI_API_KEY)'}`);
+    console.log(`  PRIMARY AI Provider: ${hasExperientialKey ? `Experiential Labs READY (${experientialModel})` : 'MISSING (Check EXPERIENTIAL_API_KEY)'}`);
+    console.log(`  FALLBACK AI Provider: ${hasGeminiKey ? 'Gemini READY (gemini-3.6-flash)' : 'MISSING (Check GEMINI_API_KEY)'}`);
     console.log(`=======================================================`);
   });
 }
