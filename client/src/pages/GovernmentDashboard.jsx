@@ -5,25 +5,38 @@ import DisasterMap from '../components/DisasterMap';
 import AIAssistantModal from '../components/AIAssistantModal';
 import GovernmentProblemDetailModal from '../components/GovernmentProblemDetailModal';
 import AIResultPanel from '../components/AIResultPanel';
+import OfficialAlertReviewModal from '../components/OfficialAlertReviewModal';
+import DisasterSimulationModal from '../components/DisasterSimulationModal';
+import ExerciseReportModal from '../components/ExerciseReportModal';
 import { api } from '../services/api';
 import { 
   Shield, Activity, Users, CheckCircle2, Sparkles, MapPin, Hospital, 
-  GraduationCap, Check, Building2, Eye, RefreshCw, AlertCircle, AlertTriangle, X, Send, Plus
+  GraduationCap, Check, Building2, Eye, RefreshCw, AlertCircle, AlertTriangle, X, Send, Plus,
+  Radio, Flame, FileText, Play, RotateCcw
 } from 'lucide-react';
 
 export default function GovernmentDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') === 'disaster' ? 'disaster' : 'responsible';
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [disasterSubTab, setDisasterSubTab] = useState('alerts'); // 'alerts' | 'simulation'
 
-  // Active Disaster State
+  // Active Disaster & Intelligence State
   const [disastersList, setDisastersList] = useState([]);
   const [activeDisaster, setActiveDisaster] = useState(null);
   const [requirements, setRequirements] = useState([]);
   const [relocationSites, setRelocationSites] = useState([]);
   const [hospitals, setHospitals] = useState([]);
   const [nearbyUniversities, setNearbyUniversities] = useState([]);
+  const [universityRisks, setUniversityRisks] = useState([]);
+  const [incomingAlerts, setIncomingAlerts] = useState([]);
+  const [selectedAlert, setSelectedAlert] = useState(null);
   const [liveResponseStatus, setLiveResponseStatus] = useState(null);
+
+  // Simulation & Exercise Modals
+  const [showSimulationModal, setShowSimulationModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportData, setReportData] = useState(null);
   
   // Loading & Error States for Disaster Command Center
   const [loadingDisaster, setLoadingDisaster] = useState(false);
@@ -74,7 +87,11 @@ export default function GovernmentDashboard() {
     setLoadingDisaster(true);
     setDisasterError(null);
     try {
-      // 1. Fetch all disasters from backend
+      // 1. Fetch incoming official alerts
+      const alertsRes = await api.getIncomingAlerts().catch(() => ({ alerts: [] }));
+      setIncomingAlerts(alertsRes.alerts || []);
+
+      // 2. Fetch all disasters from backend
       const listRes = await api.getDisasters();
       const disasters = listRes.disasters || [];
       setDisastersList(disasters);
@@ -85,11 +102,12 @@ export default function GovernmentDashboard() {
         setRelocationSites([]);
         setHospitals([]);
         setNearbyUniversities([]);
+        setUniversityRisks([]);
         setLiveResponseStatus(null);
         return;
       }
 
-      // 2. Select primary active disaster or first disaster in database
+      // 3. Select primary active disaster or first disaster in database
       const targetDisaster = disasters.find(d => d.status === 'RESPONSE_ACTIVE') || disasters[0];
       const detailRes = await api.getDisasterDetail(targetDisaster.id);
       
@@ -99,7 +117,11 @@ export default function GovernmentDashboard() {
       setHospitals(detailRes.hospitals || []);
       setNearbyUniversities(detailRes.nearbyUniversities || []);
 
-      // 3. Fetch live response status
+      // 4. Fetch university risk breakdown
+      const risksRes = await api.getUniversityDisasterRisks(targetDisaster.id).catch(() => ({ university_risks: [] }));
+      setUniversityRisks(risksRes.university_risks || []);
+
+      // 5. Fetch live response status
       const respStatus = await api.getDisasterResponseStatus(targetDisaster.id).catch(() => null);
       if (respStatus) {
         setLiveResponseStatus(respStatus);
@@ -379,14 +401,131 @@ export default function GovernmentDashboard() {
         {activeTab === 'disaster' && (
           <div className="page-section">
             
+            {/* DISASTER INTELLIGENCE & SIMULATION HEADER PANEL */}
+            <div className="card" style={{ marginBottom: '1.5rem', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', padding: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                    <span className="badge badge-navy" style={{ gap: '0.3rem', fontSize: '0.7rem' }}>
+                      <Radio size={12} className="spin" /> DISASTER INTELLIGENCE &amp; OFFICIAL ALERTS
+                    </span>
+                    {activeDisaster?.is_simulation === 1 && (
+                      <span className="badge badge-warning" style={{ gap: '0.3rem', fontSize: '0.7rem', fontWeight: 700 }}>
+                        <Flame size={12} /> SIMULATION MODE — NOT A LIVE EMERGENCY
+                      </span>
+                    )}
+                  </div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--navy)', margin: 0 }}>
+                    Official Emergency Alerts &amp; Exercise Simulation Mode
+                  </h3>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', backgroundColor: 'var(--bg-subtle)', padding: '3px', borderRadius: 'var(--radius-md)', gap: '2px' }}>
+                    <button
+                      onClick={() => setDisasterSubTab('alerts')}
+                      className={`btn btn-xs ${disasterSubTab === 'alerts' ? 'btn-primary' : 'btn-ghost'}`}
+                      style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.35rem 0.75rem' }}
+                    >
+                      <Radio size={12} /> OFFICIAL ALERTS {incomingAlerts.filter(a => a.review_status === 'PENDING_REVIEW').length > 0 && `(${incomingAlerts.filter(a => a.review_status === 'PENDING_REVIEW').length})`}
+                    </button>
+                    <button
+                      onClick={() => setDisasterSubTab('simulation')}
+                      className={`btn btn-xs ${disasterSubTab === 'simulation' ? 'btn-primary' : 'btn-ghost'}`}
+                      style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.35rem 0.75rem' }}
+                    >
+                      <Flame size={12} /> SIMULATION / EXERCISE
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setShowSimulationModal(true)}
+                    className="btn btn-terracotta btn-sm"
+                    style={{ fontWeight: 700, gap: '0.4rem', boxShadow: '0 4px 12px rgba(194, 65, 12, 0.25)' }}
+                  >
+                    <Play size={14} fill="currentColor" /> Run Disaster Simulation
+                  </button>
+                </div>
+              </div>
+
+              {/* Sub-tab 1: Official Incoming Alerts Queue */}
+              {disasterSubTab === 'alerts' && (
+                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+                      Pending Official Source Alerts (Government Review Required)
+                    </span>
+                    <button onClick={loadGovernmentDashboard} className="btn btn-ghost btn-xs" style={{ fontSize: '0.75rem' }}>
+                      <RefreshCw size={12} /> Sync Feeds
+                    </button>
+                  </div>
+
+                  {incomingAlerts.filter(a => a.review_status === 'PENDING_REVIEW').length === 0 ? (
+                    <div style={{ padding: '1rem', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', textTransform: 'none', fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <CheckCircle2 size={16} color="var(--status-success)" />
+                      <span>No pending unverified official alerts. Click <strong>"Run Disaster Simulation"</strong> to launch a simulated emergency exercise.</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '0.75rem' }}>
+                      {incomingAlerts.filter(a => a.review_status === 'PENDING_REVIEW').map((alt) => (
+                        <div key={alt.id} className="card" style={{ padding: '0.85rem 1rem', borderLeft: '4px solid var(--status-warning)', margin: 0, backgroundColor: 'var(--bg-subtle)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                            <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>{alt.severity} SEVERITY</span>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{alt.source_name}</span>
+                          </div>
+                          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--navy)', marginBottom: '0.2rem' }}>{alt.title}</h4>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-main)', marginBottom: '0.6rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {alt.description}
+                          </p>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: '0.4rem', borderTop: '1px solid var(--border-light)' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>📍 {alt.location || 'Coastal Zone'}</span>
+                            <button
+                              onClick={() => setSelectedAlert(alt)}
+                              className="btn btn-primary btn-xs"
+                              style={{ fontWeight: 600, fontSize: '0.75rem' }}
+                            >
+                              Review Alert
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sub-tab 2: Simulation Mode Info & Active Control */}
+              {disasterSubTab === 'simulation' && (
+                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--navy)', margin: 0 }}>
+                        End-to-End Disaster Exercise Mode
+                      </h4>
+                      <p className="text-muted" style={{ fontSize: '0.8rem', margin: '0.2rem 0 0 0' }}>
+                        Simulates external alert arrival, official verification, Haversine risk calculations, targeted notifications, university acknowledgements, and response team deployments.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => setShowSimulationModal(true)}
+                      className="btn btn-primary btn-sm"
+                    >
+                      Open Exercise Controller
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Refresh & Controls Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--navy)', margin: 0 }}>
-                  Active Operational Overview
+                  Active Operational Command View
                 </h2>
                 <div className="metadata-text" style={{ marginTop: '2px' }}>
-                  Real-time database feed of district hazard threats, response teams, and relocation nodes.
+                  Real-time database feed of active disaster incidents, university risk classifications, and response status.
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -891,6 +1030,54 @@ export default function GovernmentDashboard() {
               </form>
             </div>
           </div>
+        )}
+
+        {/* Official Alert Review Modal */}
+        {selectedAlert && (
+          <OfficialAlertReviewModal
+            alert={selectedAlert}
+            onClose={() => setSelectedAlert(null)}
+            onConfirmSuccess={() => {
+              loadGovernmentDashboard();
+            }}
+            onActionComplete={() => {
+              loadGovernmentDashboard();
+            }}
+          />
+        )}
+
+        {/* Disaster Simulation Controller Modal */}
+        {showSimulationModal && (
+          <DisasterSimulationModal
+            isOpen={showSimulationModal}
+            onClose={() => setShowSimulationModal(false)}
+            onExerciseStarted={() => {
+              loadGovernmentDashboard();
+            }}
+            onResetComplete={() => {
+              loadGovernmentDashboard();
+            }}
+            onViewReport={async (simulationId) => {
+              try {
+                const res = await api.getSimulationReport(simulationId);
+                setReportData(res.report);
+                setShowReportModal(true);
+              } catch (e) {
+                alert('Unable to load exercise report.');
+              }
+            }}
+          />
+        )}
+
+        {/* Exercise Report Summary Modal */}
+        {showReportModal && reportData && (
+          <ExerciseReportModal
+            report={reportData}
+            onClose={() => setShowReportModal(false)}
+            onResetComplete={() => {
+              loadGovernmentDashboard();
+            }}
+          />
         )}
 
         {/* Government Problem Detail & Review Modal */}

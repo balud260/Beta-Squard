@@ -271,6 +271,14 @@ router.get('/emergency-alerts', authenticateToken, (req, res) => {
 
       if (riskRecord) {
         alerts.push({
+          ...riskRecord,
+          disaster_id: d.id,
+          disaster_title: d.title,
+          disaster_type: d.type,
+          disaster_severity: d.severity,
+          location: d.location,
+          latitude: d.latitude,
+          longitude: d.longitude,
           disaster: d,
           risk: riskRecord
         });

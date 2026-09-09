@@ -21,6 +21,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const impactRoutes = require('./routes/impactRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const studentRoutes = require('./routes/studentRoutes');
+const simulationRoutes = require('./routes/simulationRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -49,6 +50,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/impact', impactRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/students', studentRoutes);
+app.use('/api/simulation', simulationRoutes);
 
 // Health & Status Check Endpoints (Root & /health)
 app.get('/', (req, res) => {

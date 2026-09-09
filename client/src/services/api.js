@@ -164,5 +164,26 @@ export const api = {
   queryAIAssistant: (data) => typeof data === 'string' ? request('/ai/assistant', { method: 'POST', body: JSON.stringify({ query: data }), timeoutMs: 30000 }) : request('/ai/assistant', { method: 'POST', body: JSON.stringify(data), timeoutMs: 30000 }),
   analyzeTeamSkillGap: (data) => request('/ai/team-skill-gap', { method: 'POST', body: JSON.stringify(data), timeoutMs: 30000 }),
   analyzeProposals: (data) => request('/ai/proposal-analysis', { method: 'POST', body: JSON.stringify(data), timeoutMs: 30000 }),
-  getImpactAIAnalysis: () => request('/ai/impact-analysis', { timeoutMs: 30000 })
+  getImpactAIAnalysis: () => request('/ai/impact-analysis', { timeoutMs: 30000 }),
+
+  // Official Alerts & Emergency Verification APIs
+  getOfficialSources: () => request('/disasters/sources'),
+  syncOfficialSources: () => request('/disasters/sources/sync', { method: 'POST' }),
+  getIncomingAlerts: () => request('/disasters/alerts/incoming'),
+  ingestAlert: (data) => request('/disasters/alerts/ingest', { method: 'POST', body: JSON.stringify(data) }),
+  confirmAlert: (alertId, data) => request(`/disasters/alerts/${alertId}/confirm`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  rejectAlert: (alertId, data) => request(`/disasters/alerts/${alertId}/reject`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  markDuplicateAlert: (alertId, data) => request(`/disasters/alerts/${alertId}/mark-duplicate`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  getUniversityDisasterRisks: (disasterId) => request(`/disasters/${disasterId}/university-risks`),
+  getUniversityEmergencyAlerts: () => request('/universities/emergency-alerts'),
+  acknowledgeEmergencyAlert: (disasterId) => request(`/universities/emergency-alerts/${disasterId}/acknowledge`, { method: 'POST' }),
+  activateResponseTeam: (disasterId, data) => request(`/universities/emergency-alerts/${disasterId}/activate-response`, { method: 'POST', body: JSON.stringify(data || {}) }),
+
+  // Disaster Simulation Exercise APIs
+  getSimulationScenarios: () => request('/simulation/scenarios'),
+  startSimulation: (data) => request('/simulation/start', { method: 'POST', body: JSON.stringify(data || {}) }),
+  getSimulationStatus: (simulationId) => request(`/simulation/${simulationId}/status`),
+  escalateSimulation: (simulationId, data) => request(`/simulation/${simulationId}/escalate`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  resetSimulation: (simulationId) => request(`/simulation/${simulationId}/reset`, { method: 'POST' }),
+  getSimulationReport: (simulationId) => request(`/simulation/${simulationId}/report`)
 };

@@ -110,6 +110,8 @@ async function initDb() {
         review_status TEXT CHECK(review_status IN ('PENDING_REVIEW', 'CONFIRMED', 'REJECTED', 'DUPLICATE')) DEFAULT 'PENDING_REVIEW',
         linked_disaster_id INTEGER,
         conflict_notes TEXT,
+        is_simulation INTEGER DEFAULT 0,
+        simulation_id TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(source_name, external_alert_id)
@@ -129,11 +131,24 @@ async function initDb() {
         response_status TEXT CHECK(response_status IN ('NOT_ACTIVATED', 'ACTIVATING', 'ACTIVE', 'DEPLOYED', 'STANDBY', 'COMPLETED')) DEFAULT 'NOT_ACTIVATED',
         response_activated_at DATETIME,
         response_activated_by INTEGER,
+        is_simulation INTEGER DEFAULT 0,
+        simulation_id TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(disaster_id, university_id)
       );`,
-      `ALTER TABLE external_alerts ADD COLUMN conflict_notes TEXT;`
+      `ALTER TABLE external_alerts ADD COLUMN conflict_notes TEXT;`,
+      `ALTER TABLE external_alerts ADD COLUMN is_simulation INTEGER DEFAULT 0;`,
+      `ALTER TABLE external_alerts ADD COLUMN simulation_id TEXT;`,
+      `ALTER TABLE disasters ADD COLUMN is_simulation INTEGER DEFAULT 0;`,
+      `ALTER TABLE disasters ADD COLUMN simulation_id TEXT;`,
+      `ALTER TABLE university_disaster_risks ADD COLUMN is_simulation INTEGER DEFAULT 0;`,
+      `ALTER TABLE university_disaster_risks ADD COLUMN simulation_id TEXT;`,
+      `ALTER TABLE notifications ADD COLUMN is_simulation INTEGER DEFAULT 0;`,
+      `ALTER TABLE notifications ADD COLUMN simulation_id TEXT;`,
+      `ALTER TABLE audit_logs ADD COLUMN is_simulation INTEGER DEFAULT 0;`,
+      `ALTER TABLE audit_logs ADD COLUMN simulation_id TEXT;`,
+      `ALTER TABLE audit_logs ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;`
     ];
 
     for (const sql of migrations) {

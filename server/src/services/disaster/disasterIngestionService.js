@@ -192,10 +192,12 @@ function confirmAlertAndCreateDisaster(alertId, governmentUserId, overrides = {}
   const stmt = db.prepare(`
     INSERT INTO disasters (
       title, type, location, lat, lng, severity, affected_population, vulnerable_population,
-      hazard_info, status, affected_radius_km, confirmed_by, confirmed_at, source_name, source_alert_id, verification_status
+      hazard_info, status, affected_radius_km, confirmed_by, confirmed_at, source_name, source_alert_id, verification_status,
+      is_simulation, simulation_id
     ) VALUES (
       ?, ?, ?, ?, ?, ?, 45000, 8500,
-      ?, 'RESPONSE_ACTIVE', ?, ?, CURRENT_TIMESTAMP, ?, ?, 'GOVERNMENT_CONFIRMED'
+      ?, 'RESPONSE_ACTIVE', ?, ?, CURRENT_TIMESTAMP, ?, ?, 'GOVERNMENT_CONFIRMED',
+      ?, ?
     )
   `);
 
@@ -210,7 +212,9 @@ function confirmAlertAndCreateDisaster(alertId, governmentUserId, overrides = {}
     radius,
     governmentUserId,
     alert.source_name,
-    alert.external_alert_id
+    alert.external_alert_id,
+    alert.is_simulation || 0,
+    alert.simulation_id || null
   );
 
   const disasterId = res.lastInsertRowid;
@@ -247,12 +251,36 @@ function confirmAlertAndCreateDisaster(alertId, governmentUserId, overrides = {}
   // 1. Run Deterministic University Risk Engine
   const risks = evaluateAndPersistDisasterRisks(disasterId);
 
+  // Tag risks with is_simulation & simulation_id if applicable
+  if (alert.is_simulation && alert.simulation_id) {
+    db.prepare(`
+      UPDATE university_disaster_risks
+      SET is_simulation = 1, simulation_id = ?
+      WHERE disaster_id = ?
+    `).run(alert.simulation_id, disasterId);
+  }
+
   // 2. Broadcast Targeted Notifications
   sendTargetedDisasterNotifications(disasterId, risks);
+  if (alert.is_simulation && alert.simulation_id) {
+    db.prepare(`
+      UPDATE notifications
+      SET is_simulation = 1, simulation_id = ?
+      WHERE is_simulation = 0
+    `).run(alert.simulation_id);
+  }
 
   // 3. Log Audit Event
-  db.prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)')
-    .run(governmentUserId, 'ALERT_CONFIRMED_DISASTER_CREATED', 'DISASTER', disasterId, `Government confirmed alert #${alertId} from '${alert.source_name}' as active disaster '${title}'`);
+  db.prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details, is_simulation, simulation_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(
+      governmentUserId,
+      'ALERT_CONFIRMED_DISASTER_CREATED',
+      'DISASTER',
+      disasterId,
+      `Government confirmed alert #${alertId} from '${alert.source_name}' as active disaster '${title}'`,
+      alert.is_simulation || 0,
+      alert.simulation_id || null
+    );
 
   return {
     disasterId,

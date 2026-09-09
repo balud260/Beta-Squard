@@ -32,11 +32,12 @@ export default function UniversityDashboard() {
   const [timeline, setTimeline] = useState('4 Months');
   const [message, setMessage] = useState('');
 
+  const [emergencyAlerts, setEmergencyAlerts] = useState([]);
+
   useEffect(() => {
     document.title = 'SANKALP AI | University Portal';
     loadUniversityPortalData();
   }, []);
-
 
   async function loadUniversityPortalData() {
     try {
@@ -60,8 +61,31 @@ export default function UniversityDashboard() {
 
       const emRes = await api.getActiveEmergencyRequests().catch(() => ({ activeRequests: [] }));
       setActiveEmergencyRequests(emRes.activeRequests || []);
+
+      const alertRes = await api.getUniversityEmergencyAlerts().catch(() => ({ alerts: [] }));
+      setEmergencyAlerts(alertRes.alerts || []);
     } catch (err) {
       console.error('Error loading university portal data:', err);
+    }
+  }
+
+  async function handleAcknowledgeEmergencyAlert(disasterId) {
+    try {
+      const res = await api.acknowledgeEmergencyAlert(disasterId);
+      setMessage(res.message || 'Emergency alert acknowledged successfully.');
+      loadUniversityPortalData();
+    } catch (err) {
+      setMessage(err.message || 'Failed to acknowledge alert.');
+    }
+  }
+
+  async function handleActivateCampusResponse(disasterId) {
+    try {
+      const res = await api.activateResponseTeam(disasterId, { status: 'ACTIVE' });
+      setMessage(res.message || 'Campus Disaster Response Team activated.');
+      loadUniversityPortalData();
+    } catch (err) {
+      setMessage(err.message || 'Failed to activate response team.');
     }
   }
 
@@ -452,6 +476,107 @@ export default function UniversityDashboard() {
             {activeTab === 'emergency-requests' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 
+                {/* EARLY WARNING EMERGENCY RISK ALERTS (Government Dispatch & Risk Engine) */}
+                {emergencyAlerts.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1rem' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--terracotta)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <ShieldAlert size={16} /> GOVERNMENT EARLY WARNING DISASTER RISK ALERTS ({emergencyAlerts.length})
+                    </div>
+
+                    {emergencyAlerts.map((alt) => {
+                      const isHigh = alt.risk_level === 'HIGH';
+                      const isMed = alt.risk_level === 'MEDIUM';
+                      const borderColor = isHigh ? 'var(--status-danger)' : isMed ? 'var(--status-warning)' : 'var(--status-success)';
+                      const badgeClass = isHigh ? 'badge-danger' : isMed ? 'badge-warning' : 'badge-success';
+
+                      return (
+                        <div
+                          key={alt.id}
+                          className="card"
+                          style={{
+                            borderLeft: `6px solid ${borderColor}`,
+                            padding: '1.25rem',
+                            backgroundColor: isHigh ? 'var(--status-danger-bg)' : 'var(--bg-card)'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <div>
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
+                                <span className={`badge ${badgeClass}`} style={{ fontWeight: 800, fontSize: '0.75rem', gap: '0.3rem' }}>
+                                  {isHigh ? '🚨 HIGH RISK — IMMEDIATE ACTION REQUIRED' : isMed ? '🟠 MEDIUM RISK — PREPARE' : '🟢 LOW RISK — MONITOR'}
+                                </span>
+                                {alt.is_simulation === 1 && (
+                                  <span className="badge badge-navy" style={{ fontSize: '0.65rem' }}>
+                                    SIMULATION EXERCISE
+                                  </span>
+                                )}
+                                <span className="badge badge-secondary" style={{ fontSize: '0.7rem' }}>
+                                  Distance: {alt.distance_km} KM
+                                </span>
+                              </div>
+
+                              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--navy)', margin: '0 0 0.2rem 0' }}>
+                                {alt.disaster_title}
+                              </h3>
+                              <div className="metadata-text">
+                                Type: <strong>{alt.disaster_type}</strong> • Severity: <strong style={{ color: borderColor }}>{alt.disaster_severity}</strong> • Location: 📍 {alt.disaster_location}
+                              </div>
+                            </div>
+
+                            <div style={{ textAlign: 'right' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: alt.acknowledged ? 'var(--status-success)' : 'var(--status-warning)' }}>
+                                {alt.acknowledged ? '✓ Alert Acknowledged' : '⚠ Action Required'}
+                              </span>
+                              <br />
+                              <span className="badge badge-navy" style={{ marginTop: '0.2rem', fontSize: '0.7rem' }}>
+                                Response Team: {alt.response_status || 'NOT_ACTIVATED'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <p style={{ fontSize: '0.875rem', color: 'var(--text-main)', marginBottom: '1rem', lineHeight: 1.5 }}>
+                            <strong>Government Instruction:</strong> {alt.risk_reason}
+                          </p>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-light)', paddingTop: '0.85rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                            <div className="metadata-text" style={{ fontSize: '0.75rem' }}>
+                              Disaster Radius: <strong>{alt.affected_radius_km || 15} KM</strong> • Confirmed: <strong>Official Government Command</strong>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                              {!alt.acknowledged && (
+                                <button
+                                  onClick={() => handleAcknowledgeEmergencyAlert(alt.disaster_id)}
+                                  className="btn btn-warning btn-sm"
+                                  style={{ fontWeight: 700 }}
+                                >
+                                  <CheckCircle2 size={14} /> Acknowledge Alert
+                                </button>
+                              )}
+
+                              {alt.response_status !== 'ACTIVE' && (
+                                <button
+                                  onClick={() => handleActivateCampusResponse(alt.disaster_id)}
+                                  className="btn btn-primary btn-sm"
+                                  style={{ backgroundColor: 'var(--status-danger)', borderColor: 'var(--status-danger)', fontWeight: 700 }}
+                                >
+                                  <ShieldAlert size={14} /> Activate Response Team
+                                </button>
+                              )}
+
+                              {alt.response_status === 'ACTIVE' && (
+                                <span className="btn btn-secondary btn-sm" style={{ color: 'var(--status-success)', fontWeight: 700, cursor: 'default' }}>
+                                  ✓ Response Active
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* Emergency Requests Sub-Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '10px' }}>
                   <div style={{ display: 'flex', gap: '8px' }}>
