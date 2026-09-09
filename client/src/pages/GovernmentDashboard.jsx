@@ -1057,6 +1057,10 @@ export default function GovernmentDashboard() {
             onResetComplete={() => {
               loadGovernmentDashboard();
             }}
+            onReviewAlert={(alert) => {
+              setShowSimulationModal(false);
+              setSelectedAlert(alert);
+            }}
             onViewReport={async (simulationId) => {
               try {
                 const res = await api.getSimulationReport(simulationId);

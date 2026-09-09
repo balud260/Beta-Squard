@@ -55,192 +55,169 @@ export default function OfficialAlertReviewModal({ alert, onClose, onConfirmSucc
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl text-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+      <div
+        className="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl flex flex-col my-auto"
+        style={{ backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-light)', maxHeight: '90vh' }}
+      >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-800/50">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <Radio className="w-5 h-5 animate-pulse" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h3 className="font-semibold text-lg text-white">Official Emergency Alert Review</h3>
-                <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  {alert.review_status || 'PENDING_REVIEW'}
-                </span>
+        <div style={{ backgroundColor: 'var(--navy)', color: '#FFFFFF', padding: '1.25rem 1.5rem', borderBottom: '2px solid var(--terracotta)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <div style={{ backgroundColor: 'rgba(255,255,255,0.15)', padding: '0.4rem', borderRadius: 'var(--radius-sm)' }}>
+                <Radio size={20} color="#FFFFFF" className="spin" />
               </div>
-              <p className="text-xs text-slate-400">Government Action Required Before Public Emergency Declaration</p>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>OFFICIAL EMERGENCY ALERT REVIEW</h3>
+                  <span style={{ backgroundColor: 'var(--terracotta)', color: '#fff', fontSize: '0.65rem', fontWeight: 800, padding: '0.15rem 0.5rem', borderRadius: '12px' }}>
+                    {alert.review_status || 'PENDING_REVIEW'}
+                  </span>
+                </div>
+                <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.8)', margin: '0.2rem 0 0 0' }}>
+                  Government Authorization Required Before Public Emergency Declaration
+                </p>
+              </div>
             </div>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)' }}>
+              <XCircle size={22} />
+            </button>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            <XCircle className="w-5 h-5" />
-          </button>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+        <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', flex: 1 }} className="space-y-4">
           {error && (
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-start space-x-2">
-              <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
+            <div style={{ backgroundColor: 'var(--status-danger-bg)', border: '1px solid var(--status-danger)', color: 'var(--status-danger)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <AlertCircle size={18} />
               <span>{error}</span>
             </div>
           )}
 
           {/* Source Banner */}
-          <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/60 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Issuing Source</span>
-              <span className="text-xs px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">
+          <div className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>ISSUING SOURCE</span>
+              <span className="badge badge-navy" style={{ fontSize: '0.65rem' }}>
                 {alert.is_simulation ? 'SIMULATED OFFICIAL FEED' : 'OFFICIAL VERIFIED FEED'}
               </span>
             </div>
-            <div className="text-base font-medium text-amber-300 flex items-center space-x-2">
-              <Shield className="w-4 h-4 text-amber-400" />
+            <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--navy)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Shield size={16} color="var(--terracotta)" />
               <span>{alert.source_name}</span>
             </div>
-            <div className="text-xs text-slate-400 flex items-center space-x-4 pt-1">
-              <span className="flex items-center space-x-1">
-                <Clock className="w-3.5 h-3.5 text-slate-500" />
-                <span>Issued: {new Date(alert.issued_at || Date.now()).toLocaleTimeString()}</span>
-              </span>
-              <span>Ref ID: <code className="text-slate-300">{alert.external_alert_id}</code></span>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.3rem', display: 'flex', gap: '1rem' }}>
+              <span>Issued: <strong>{new Date(alert.issued_at || Date.now()).toLocaleTimeString()}</strong></span>
+              <span>Ref ID: <code style={{ color: 'var(--navy)' }}>{alert.external_alert_id}</code></span>
             </div>
           </div>
 
           {/* Alert Details */}
-          <div className="space-y-3">
-            <div className="flex items-start justify-between">
+          <div className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-card)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.6rem' }}>
               <div>
-                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Alert Event Title</span>
-                <h4 className="text-xl font-bold text-white mt-0.5">{alert.title}</h4>
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>ALERT EVENT TITLE</span>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--navy)', margin: '0.2rem 0 0 0' }}>{alert.title}</h4>
               </div>
-              <span className={`px-3 py-1 text-xs font-bold rounded-lg uppercase tracking-wider border ${
-                alert.severity === 'CRITICAL' ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' :
-                alert.severity === 'HIGH' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
-                'bg-blue-500/20 text-blue-400 border-blue-500/30'
-              }`}>
+              <span className={`badge ${alert.severity === 'CRITICAL' ? 'badge-danger' : alert.severity === 'HIGH' ? 'badge-warning' : 'badge-primary'}`} style={{ fontSize: '0.7rem', fontWeight: 800 }}>
                 {alert.severity} SEVERITY
               </span>
             </div>
 
-            <p className="text-sm text-slate-300 leading-relaxed bg-slate-800/30 p-3.5 rounded-xl border border-slate-800">
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-main)', lineHeight: 1.5, backgroundColor: 'var(--bg-subtle)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', marginBottom: '0.85rem' }}>
               {alert.description}
             </p>
 
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-800">
-                <div className="text-xs text-slate-400 flex items-center space-x-1">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Target Region & Coordinates</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div style={{ backgroundColor: 'var(--bg-subtle)', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-sm)' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <MapPin size={12} color="var(--terracotta)" /> TARGET REGION
                 </div>
-                <div className="text-sm font-semibold text-white mt-1">
+                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--navy)', marginTop: '0.2rem' }}>
                   {alert.location || `Lat: ${alert.lat}, Lng: ${alert.lng}`}
-                </div>
-                <div className="text-xs text-slate-400 mt-0.5 font-mono">
-                  {alert.lat?.toFixed(4)}, {alert.lng?.toFixed(4)}
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-800">
-                <div className="text-xs text-slate-400">Affected Impact Radius</div>
-                <div className="text-sm font-semibold text-white mt-1">
-                  {alert.affected_radius_km || 15} KM Zone
-                </div>
-                <div className="text-xs text-amber-400/90 mt-0.5">
-                  Haversine deterministic radius evaluation
+              <div style={{ backgroundColor: 'var(--bg-subtle)', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-sm)' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>AFFECTED IMPACT RADIUS</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--navy)', marginTop: '0.2rem' }}>
+                  {alert.affected_radius_km || 120} KM Zone
                 </div>
               </div>
             </div>
           </div>
 
-          {alert.conflict_notes && (
-            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
-              <span className="font-semibold block text-amber-400 mb-0.5">Multi-Source Verification Alert:</span>
-              {alert.conflict_notes}
-            </div>
-          )}
-
           {/* Action Choice Bar */}
           {!showConfirmDialog ? (
-            <div className="pt-2 flex items-center justify-end space-x-3 border-t border-slate-800">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', borderTop: '1px solid var(--border-light)', paddingTop: '0.85rem' }}>
               <button
                 onClick={handleRejectAlert}
                 disabled={submitting}
-                className="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 text-sm font-medium transition-colors flex items-center space-x-1.5"
+                className="btn btn-secondary btn-sm"
+                style={{ fontWeight: 600 }}
               >
-                <XCircle className="w-4 h-4 text-slate-400" />
-                <span>Reject Alert</span>
+                <XCircle size={14} /> Reject Alert
               </button>
 
               <button
                 onClick={handleMarkDuplicate}
                 disabled={submitting}
-                className="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 text-sm font-medium transition-colors flex items-center space-x-1.5"
+                className="btn btn-secondary btn-sm"
+                style={{ fontWeight: 600 }}
               >
-                <Copy className="w-4 h-4 text-slate-400" />
-                <span>Mark Duplicate</span>
+                <Copy size={14} /> Mark Duplicate
               </button>
 
               <button
                 onClick={() => setShowConfirmDialog(true)}
                 disabled={submitting}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold shadow-lg shadow-emerald-950/30 transition-all flex items-center space-x-2"
+                className="btn btn-terracotta btn-sm"
+                style={{ fontWeight: 800, gap: '0.4rem', boxShadow: '0 4px 12px rgba(194, 65, 12, 0.25)' }}
               >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Confirm & Declare Disaster</span>
+                <CheckCircle2 size={14} /> Confirm &amp; Declare Disaster
               </button>
             </div>
           ) : (
             /* Explicit Government Confirmation Dialog */
-            <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/30 space-y-3 animate-fadeIn">
-              <div className="flex items-start space-x-3">
-                <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
-                  <AlertTriangle className="w-5 h-5" />
-                </div>
+            <div className="card" style={{ backgroundColor: 'var(--status-success-bg)', border: '2px solid var(--status-success)', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
+                <AlertTriangle size={20} color="var(--status-success)" style={{ marginTop: '0.1rem' }} />
                 <div>
-                  <h5 className="font-semibold text-white text-base">Confirm Disaster Emergency Declaration?</h5>
-                  <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                    Confirming this alert will activate the disaster response workflow, calculate geographic university impact zones via Haversine distance, and broadcast targeted emergency alerts to affected institutions.
+                  <h5 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--navy)', margin: 0 }}>Confirm Disaster Emergency Declaration?</h5>
+                  <p style={{ fontSize: '0.8rem', color: '#14532d', margin: '0.2rem 0 0 0' }}>
+                    Confirming this alert will activate the SANKALP disaster response workflow, compute geographic university impact zones via Haversine distance, and issue targeted emergency alerts.
                   </p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Government Verification Notes (Optional)</label>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--navy)', display: 'block', marginBottom: '0.3rem' }}>
+                  Government Verification Notes (Optional)
+                </label>
                 <input
                   type="text"
                   placeholder="e.g. Verified with state emergency ops center. Creating official disaster."
                   value={conflictNotes}
                   onChange={(e) => setConflictNotes(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:border-emerald-500"
+                  style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)', fontSize: '0.825rem' }}
                 />
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-2">
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                 <button
                   onClick={() => setShowConfirmDialog(false)}
                   disabled={submitting}
-                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+                  className="btn btn-secondary btn-sm"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmAlert}
                   disabled={submitting}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold shadow-lg transition-all flex items-center space-x-2"
+                  className="btn btn-terracotta btn-sm"
+                  style={{ fontWeight: 800 }}
                 >
-                  {submitting ? (
-                    <span>Processing Declaration...</span>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Confirm & Declare Disaster Now</span>
-                    </>
-                  )}
+                  {submitting ? 'Processing Declaration...' : 'Confirm & Declare Disaster Now'}
                 </button>
               </div>
             </div>

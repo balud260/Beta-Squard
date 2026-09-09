@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, CheckCircle2, RefreshCw, XCircle, AlertTriangle, MapPin, Activity, FileText, Users, Building2 } from 'lucide-react';
+import { Shield, CheckCircle2, RefreshCw, XCircle, AlertTriangle, MapPin, Activity, FileText, Users, Building2, Download } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function ExerciseReportModal({ report, onClose, onResetComplete }) {
@@ -22,106 +22,107 @@ export default function ExerciseReportModal({ report, onClose, onResetComplete }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl text-slate-100 flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+      <div
+        className="w-full max-w-3xl rounded-2xl overflow-hidden shadow-2xl flex flex-col my-auto"
+        style={{ backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-light)', maxHeight: '90vh' }}
+      >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/60 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h3 className="font-bold text-xl text-white">Disaster Exercise Report</h3>
-                <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  COMPLETED
-                </span>
+        <div style={{ backgroundColor: 'var(--navy)', color: '#FFFFFF', padding: '1.25rem 1.5rem', borderBottom: '2px solid var(--terracotta)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <div style={{ backgroundColor: 'rgba(255,255,255,0.15)', padding: '0.4rem', borderRadius: 'var(--radius-sm)' }}>
+                <CheckCircle2 size={22} color="#4ade80" />
               </div>
-              <p className="text-xs text-slate-400">Simulation Exercise Summary & Audit Trail Breakdown</p>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>DISASTER EXERCISE REPORT</h3>
+                  <span style={{ backgroundColor: 'rgba(74, 222, 128, 0.2)', color: '#4ade80', fontSize: '0.65rem', fontWeight: 800, padding: '0.15rem 0.5rem', borderRadius: '12px' }}>
+                    EXERCISE COMPLETED
+                  </span>
+                </div>
+                <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.8)', margin: '0.2rem 0 0 0' }}>
+                  Official SANKALP AI Disaster Response Audit &amp; Impact Report
+                </p>
+              </div>
             </div>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)' }}>
+              <XCircle size={22} />
+            </button>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            <XCircle className="w-5 h-5" />
-          </button>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-6 overflow-y-auto flex-1">
+        <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', flex: 1 }} className="space-y-4">
+
           {/* Top Banner */}
-          <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/60 flex items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Exercise Incident Title</span>
-              <h4 className="text-lg font-bold text-white mt-0.5">{report.scenarioTitle}</h4>
-              <p className="text-xs text-slate-400 mt-1">
-                Source: <span className="text-amber-400 font-medium">{report.sourceName}</span> | Ref ID: <code className="text-slate-300">{report.simulationId}</code>
-              </p>
+          <div className="card" style={{ padding: '1rem 1.25rem', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  EXERCISE SCENARIO TITLE
+                </span>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--navy)', margin: '0.2rem 0 0.3rem 0' }}>
+                  {report.scenarioTitle}
+                </h4>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-main)', margin: 0 }}>
+                  Source: <strong>{report.sourceName}</strong> • Exercise ID: <code style={{ color: 'var(--navy)' }}>{report.simulationId}</code>
+                </p>
+              </div>
+              <span className={`badge ${report.severity === 'CRITICAL' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: '0.7rem', fontWeight: 800 }}>
+                {report.severity}
+              </span>
             </div>
-            <span className={`px-3 py-1 text-xs font-bold rounded-lg uppercase tracking-wider border ${
-              report.severity === 'CRITICAL' ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-            }`}>
-              {report.severity}
-            </span>
           </div>
 
           {/* Metric Cards Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3.5 rounded-xl bg-slate-800/40 border border-slate-800 text-center">
-              <div className="text-2xl font-bold text-white">{summary.total || 0}</div>
-              <div className="text-xs text-slate-400 mt-0.5">Universities Evaluated</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem' }}>
+            <div className="card" style={{ padding: '0.85rem', textAlign: 'center', backgroundColor: 'var(--bg-card)' }}>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--navy)', lineHeight: 1.1 }}>{summary.total || 0}</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Universities Evaluated</div>
             </div>
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center">
-              <div className="text-2xl font-bold text-rose-400">{summary.high || 0}</div>
-              <div className="text-xs text-rose-300/80 mt-0.5">HIGH Risk Tiers</div>
+
+            <div className="card" style={{ padding: '0.85rem', textAlign: 'center', backgroundColor: 'var(--status-danger-bg)', borderColor: 'var(--status-danger)' }}>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--status-danger)', lineHeight: 1.1 }}>{summary.high || 0}</div>
+              <div style={{ fontSize: '0.72rem', color: '#7f1d1d', marginTop: '0.2rem' }}>HIGH Risk Institutions</div>
             </div>
-            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-              <div className="text-2xl font-bold text-emerald-400">{summary.acknowledged || 0} / {summary.high || 0}</div>
-              <div className="text-xs text-emerald-300/80 mt-0.5">High-Risk Acknowledged</div>
+
+            <div className="card" style={{ padding: '0.85rem', textAlign: 'center', backgroundColor: 'var(--status-success-bg)', borderColor: 'var(--status-success)' }}>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--status-success)', lineHeight: 1.1 }}>{summary.acknowledged || 0} / {summary.high || 0}</div>
+              <div style={{ fontSize: '0.72rem', color: '#14532d', marginTop: '0.2rem' }}>High-Risk Acknowledged</div>
             </div>
-            <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center">
-              <div className="text-2xl font-bold text-blue-400">{summary.responseActivated || 0}</div>
-              <div className="text-xs text-blue-300/80 mt-0.5">Teams Activated</div>
+
+            <div className="card" style={{ padding: '0.85rem', textAlign: 'center', backgroundColor: 'var(--bg-subtle)', borderColor: 'var(--terracotta)' }}>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--terracotta)', lineHeight: 1.1 }}>{summary.responseActivated || 0}</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Response Teams Active</div>
             </div>
           </div>
 
           {/* University Risk Breakdown List */}
-          <div>
-            <h4 className="text-sm font-semibold text-white mb-3 flex items-center space-x-2">
-              <Building2 className="w-4 h-4 text-emerald-400" />
-              <span>University Risk & Response Status Breakdown</span>
+          <div className="card" style={{ padding: '1rem' }}>
+            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--navy)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Building2 size={16} color="var(--navy)" /> UNIVERSITY RISK &amp; RESPONSE STATUS BREAKDOWN
             </h4>
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '180px', overflowY: 'auto' }}>
               {risks.map((r) => (
                 <div 
                   key={r.id}
-                  className="p-3 rounded-xl bg-slate-800/30 border border-slate-800 flex items-center justify-between text-xs"
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem' }}
                 >
-                  <div className="flex items-center space-x-3">
-                    <span className={`px-2 py-0.5 rounded font-bold uppercase ${
-                      r.risk_level === 'HIGH' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
-                      r.risk_level === 'MEDIUM' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                      'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    }`}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className={`badge ${r.risk_level === 'HIGH' ? 'badge-danger' : r.risk_level === 'MEDIUM' ? 'badge-warning' : 'badge-success'}`} style={{ fontSize: '0.65rem', fontWeight: 800 }}>
                       {r.risk_level}
                     </span>
-                    <div>
-                      <div className="font-semibold text-slate-200">{r.university_name}</div>
-                      <div className="text-slate-400 text-[11px]">{r.distance_km} KM from disaster center</div>
-                    </div>
+                    <span style={{ fontWeight: 700, color: 'var(--navy)' }}>{r.university_name}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>({r.distance_km} km away)</span>
                   </div>
 
-                  <div className="flex items-center space-x-4">
-                    <span className={`font-medium ${r.acknowledged ? 'text-emerald-400' : 'text-slate-500'}`}>
-                      {r.acknowledged ? '✓ Acknowledged' : '⚠ Unacknowledged'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.72rem' }}>
+                    <span style={{ color: r.acknowledged ? 'var(--status-success)' : 'var(--text-muted)', fontWeight: 600 }}>
+                      {r.acknowledged ? '✓ Acknowledged' : '⏳ Pending'}
                     </span>
-                    <span className={`px-2 py-0.5 rounded font-semibold text-[11px] ${
-                      r.response_status === 'ACTIVE' || r.response_status === 'ACTIVATING'
-                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                        : 'bg-slate-800 text-slate-400'
-                    }`}>
-                      {r.response_status}
+                    <span style={{ color: r.response_status === 'ACTIVE' ? 'var(--status-success)' : 'var(--navy)', fontWeight: 700 }}>
+                      Team: {r.response_status}
                     </span>
                   </div>
                 </div>
@@ -130,38 +131,41 @@ export default function ExerciseReportModal({ report, onClose, onResetComplete }
           </div>
 
           {/* Audit Timeline */}
-          <div>
-            <h4 className="text-sm font-semibold text-white mb-3 flex items-center space-x-2">
-              <Activity className="w-4 h-4 text-amber-400" />
-              <span>Exercise Audit Timeline ({auditLogs.length} Events)</span>
+          <div className="card" style={{ padding: '1rem' }}>
+            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--navy)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Activity size={16} color="var(--terracotta)" /> EXERCISE AUDIT TIMELINE ({auditLogs.length} EVENTS)
             </h4>
-            <div className="p-3.5 rounded-xl bg-slate-800/20 border border-slate-800 space-y-2.5 max-h-48 overflow-y-auto">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', maxHeight: '160px', overflowY: 'auto', backgroundColor: 'var(--bg-subtle)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
               {auditLogs.map((log) => (
-                <div key={log.id} className="text-xs flex items-start space-x-3 text-slate-300">
-                  <span className="text-slate-500 font-mono flex-shrink-0">
-                    {new Date(log.created_at).toLocaleTimeString()}
+                <div key={log.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', fontSize: '0.78rem' }}>
+                  <span style={{ fontFamily: 'monospace', color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                    {new Date(log.created_at || Date.now()).toLocaleTimeString()}
                   </span>
-                  <span className="font-semibold text-amber-400/90 flex-shrink-0">{log.action}:</span>
-                  <span className="text-slate-300">{log.details}</span>
+                  <span className="badge badge-primary" style={{ fontSize: '0.6rem', padding: '0.1rem 0.4rem' }}>
+                    {log.action}
+                  </span>
+                  <span style={{ color: 'var(--text-dark)', flex: 1 }}>{log.details}</span>
                 </div>
               ))}
             </div>
           </div>
+
         </div>
 
         {/* Footer Bar */}
-        <div className="px-6 py-4 border-t border-slate-800 bg-slate-800/50 flex items-center justify-between">
+        <div style={{ backgroundColor: 'var(--bg-subtle)', borderTop: '1px solid var(--border-light)', padding: '0.85rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button
             onClick={handleReset}
-            className="px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors flex items-center space-x-1.5"
+            className="btn btn-secondary btn-sm"
+            style={{ color: 'var(--status-danger)', borderColor: 'var(--status-danger)', fontWeight: 700, gap: '0.4rem' }}
           >
-            <RefreshCw className="w-4 h-4" />
-            <span>Reset Exercise Data</span>
+            <RefreshCw size={14} /> Purge Exercise Data
           </button>
 
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-colors"
+            className="btn btn-primary btn-sm"
+            style={{ fontWeight: 700 }}
           >
             Close Report
           </button>
