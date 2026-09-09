@@ -2,7 +2,7 @@ const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
 
-const dbPath = path.join(__dirname, '../../database/solvelink.db');
+const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../../database/solvelink.db');
 const schemaPath = path.join(__dirname, '../database/schema.sql');
 const seedPath = path.join(__dirname, '../database/seed.sql');
 
