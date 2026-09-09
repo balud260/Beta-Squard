@@ -236,7 +236,7 @@ router.post('/emergency/:incidentId/notify', authenticateToken, (req, res) => {
     db.prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)')
       .run(req.user.id, 'EMERGENCY_TEAMS_ASSIGNED', 'DISASTER', disasterId, `University Admin assigned teams (${categories.join(', ')}) notifying ${totalNotified} students for ${disaster.title}`);
 
-    res.json({
+    res.status(201).json({
       message: 'Emergency response request sent.',
       details: `${totalNotified} total students notified (${notifiedDetails.join(', ')})`,
       notified_counts: notifiedCounts,
@@ -246,6 +246,115 @@ router.post('/emergency/:incidentId/notify', authenticateToken, (req, res) => {
   } catch (error) {
     console.error('Notify emergency response error:', error);
     res.status(500).json({ error: 'Unable to send emergency notifications. Please try again.' });
+  }
+});
+
+/**
+ * GET /api/university/emergency-alerts - University Early Warning Alerts & Risk Classification
+ */
+router.get('/emergency-alerts', authenticateToken, (req, res) => {
+  try {
+    const univId = req.user.university_id || 1;
+    const { evaluateAndPersistDisasterRisks } = require('../services/disaster/universityRiskEngine');
+
+    // Get all active disasters
+    const activeDisasters = db.prepare('SELECT * FROM disasters WHERE status IN ("ACTIVE", "RESPONSE_ACTIVE", "CONFIRMED", "ESCALATED") ORDER BY created_at DESC').all();
+
+    const alerts = [];
+
+    for (const d of activeDisasters) {
+      evaluateAndPersistDisasterRisks(d.id);
+
+      const riskRecord = db.prepare(`
+        SELECT * FROM university_disaster_risks WHERE disaster_id = ? AND university_id = ?
+      `).get(d.id, univId);
+
+      if (riskRecord) {
+        alerts.push({
+          disaster: d,
+          risk: riskRecord
+        });
+      }
+    }
+
+    res.json({ alerts });
+  } catch (error) {
+    console.error('Fetch university emergency alerts error:', error);
+    res.status(500).json({ error: 'Failed to fetch emergency alerts.' });
+  }
+});
+
+/**
+ * POST /api/university/emergency-alerts/:disasterId/acknowledge - Acknowledge Risk Alert
+ */
+router.post('/emergency-alerts/:disasterId/acknowledge', authenticateToken, (req, res) => {
+  try {
+    const disasterId = req.params.disasterId;
+    const univId = req.user.university_id || 1;
+
+    db.prepare(`
+      UPDATE university_disaster_risks
+      SET acknowledged = 1, acknowledged_at = CURRENT_TIMESTAMP, acknowledged_by = ?, action_required = 0, updated_at = CURRENT_TIMESTAMP
+      WHERE disaster_id = ? AND university_id = ?
+    `).run(req.user.id, disasterId, univId);
+
+    db.prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)')
+      .run(req.user.id, 'EMERGENCY_ALERT_ACKNOWLEDGED', 'DISASTER', disasterId, `University #${univId} acknowledged disaster #${disasterId} alert`);
+
+    res.json({
+      message: 'Emergency alert acknowledged successfully.',
+      acknowledged: true,
+      acknowledged_at: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Acknowledge emergency alert error:', error);
+    res.status(500).json({ error: 'Failed to acknowledge emergency alert.' });
+  }
+});
+
+/**
+ * POST /api/university/emergency-alerts/:disasterId/activate-response - Activate Response Team Status
+ */
+router.post('/emergency-alerts/:disasterId/activate-response', authenticateToken, (req, res) => {
+  try {
+    const disasterId = req.params.disasterId;
+    const univId = req.user.university_id || 1;
+    const { status } = req.body;
+
+    const newStatus = status || 'ACTIVE';
+
+    db.prepare(`
+      UPDATE university_disaster_risks
+      SET response_status = ?, response_activated_at = CURRENT_TIMESTAMP, response_activated_by = ?, acknowledged = 1, acknowledged_at = COALESCE(acknowledged_at, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP
+      WHERE disaster_id = ? AND university_id = ?
+    `).run(newStatus, req.user.id, disasterId, univId);
+
+    // Notify Government Command Center
+    const govAdmins = db.prepare('SELECT id FROM users WHERE role = "GOVERNMENT"').all();
+    const univ = db.prepare('SELECT name FROM universities WHERE id = ?').get(univId);
+
+    for (const g of govAdmins) {
+      db.prepare(`
+        INSERT INTO notifications (user_id, role_target, title, message, type, metadata_json)
+        VALUES (?, 'GOVERNMENT', '🚨 UNIVERSITY RESPONSE TEAM ACTIVATED', ?, 'EMERGENCY', ?)
+      `).run(
+        g.id,
+        `${univ?.name || 'A university'} activated emergency response team (Status: ${newStatus}) for Disaster #${disasterId}.`,
+        JSON.stringify({ disaster_id: Number(disasterId), university_id: Number(univId), response_status: newStatus })
+      );
+    }
+
+    db.prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)')
+      .run(req.user.id, 'UNIVERSITY_RESPONSE_ACTIVATED', 'DISASTER', disasterId, `University #${univId} set response status to '${newStatus}' for disaster #${disasterId}`);
+
+    res.json({
+      message: `Emergency response team activated (Status: ${newStatus}).`,
+      response_status: newStatus,
+      activated_at: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Activate response team error:', error);
+    res.status(500).json({ error: 'Failed to activate response team.' });
   }
 });
 

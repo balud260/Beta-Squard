@@ -1,6 +1,7 @@
 const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 
 const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../../database/solvelink.db');
 const schemaPath = path.join(__dirname, '../database/schema.sql');
@@ -46,6 +47,18 @@ async function initDb() {
       'ALTER TABLE problems ADD COLUMN ai_responsibility_key TEXT;',
       'ALTER TABLE problems ADD COLUMN official_responsibility_key TEXT;',
       'ALTER TABLE problems ADD COLUMN routing_status TEXT DEFAULT "AI_ROUTED";',
+      'ALTER TABLE disasters ADD COLUMN affected_radius_km REAL DEFAULT 15.0;',
+      'ALTER TABLE disasters ADD COLUMN confirmed_by INTEGER;',
+      'ALTER TABLE disasters ADD COLUMN confirmed_at DATETIME;',
+      'ALTER TABLE disasters ADD COLUMN source_name TEXT;',
+      'ALTER TABLE disasters ADD COLUMN source_alert_id TEXT;',
+      'ALTER TABLE disasters ADD COLUMN verification_status TEXT DEFAULT "GOVERNMENT_CONFIRMED";',
+      'ALTER TABLE disasters ADD COLUMN start_time DATETIME;',
+      'ALTER TABLE disasters ADD COLUMN expected_end_time DATETIME;',
+      'ALTER TABLE disasters ADD COLUMN required_capabilities_json TEXT;',
+      'ALTER TABLE disasters ADD COLUMN required_resources_json TEXT;',
+      'ALTER TABLE disasters ADD COLUMN immediate_actions_json TEXT;',
+      'ALTER TABLE disasters ADD COLUMN conflict_notes TEXT;',
       `CREATE TABLE IF NOT EXISTS government_reviews (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         problem_id INTEGER NOT NULL,
@@ -62,7 +75,65 @@ async function initDb() {
         responsibility_key TEXT,
         jurisdiction TEXT,
         assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );`
+      );`,
+      `CREATE TABLE IF NOT EXISTS disaster_sources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        department TEXT NOT NULL,
+        type TEXT NOT NULL,
+        endpoint_ref TEXT,
+        enabled BOOLEAN DEFAULT 1,
+        polling_interval_mins INTEGER DEFAULT 15,
+        trust_level TEXT DEFAULT 'OFFICIAL_CRITICAL',
+        last_sync_at DATETIME,
+        last_status TEXT DEFAULT 'SUCCESS',
+        last_alert_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );`,
+      `CREATE TABLE IF NOT EXISTS external_alerts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_id INTEGER,
+        source_name TEXT NOT NULL,
+        external_alert_id TEXT NOT NULL,
+        alert_type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        severity TEXT CHECK(severity IN ('LOW', 'MODERATE', 'HIGH', 'CRITICAL')) DEFAULT 'HIGH',
+        issued_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        expires_at DATETIME,
+        lat REAL NOT NULL,
+        lng REAL NOT NULL,
+        affected_radius_km REAL DEFAULT 15.0,
+        raw_metadata_json TEXT,
+        normalized_data_json TEXT,
+        validation_status TEXT DEFAULT 'VALIDATED',
+        review_status TEXT CHECK(review_status IN ('PENDING_REVIEW', 'CONFIRMED', 'REJECTED', 'DUPLICATE')) DEFAULT 'PENDING_REVIEW',
+        linked_disaster_id INTEGER,
+        conflict_notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(source_name, external_alert_id)
+      );`,
+      `CREATE TABLE IF NOT EXISTS university_disaster_risks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        disaster_id INTEGER NOT NULL,
+        university_id INTEGER NOT NULL,
+        risk_level TEXT CHECK(risk_level IN ('HIGH', 'MEDIUM', 'LOW', 'SAFE')) DEFAULT 'MEDIUM',
+        distance_km REAL NOT NULL,
+        inside_impact_zone BOOLEAN DEFAULT 0,
+        risk_reason TEXT NOT NULL,
+        action_required BOOLEAN DEFAULT 0,
+        acknowledged BOOLEAN DEFAULT 0,
+        acknowledged_at DATETIME,
+        acknowledged_by INTEGER,
+        response_status TEXT CHECK(response_status IN ('NOT_ACTIVATED', 'ACTIVATING', 'ACTIVE', 'DEPLOYED', 'STANDBY', 'COMPLETED')) DEFAULT 'NOT_ACTIVATED',
+        response_activated_at DATETIME,
+        response_activated_by INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(disaster_id, university_id)
+      );`,
+      `ALTER TABLE external_alerts ADD COLUMN conflict_notes TEXT;`
     ];
 
     for (const sql of migrations) {
@@ -113,32 +184,33 @@ async function initDb() {
     }
 
     // Ensure Hackathon Evaluator Test Accounts exist (idempotent seed)
+    const defaultHash = bcrypt.hashSync('password123', 10);
     const testAccounts = [
       {
         name: 'Commander Rajesh Sharma (Government)',
         email: 'government@sankalp.ai',
-        password_hash: '$2a$10$.8DJDf1GNL7pX.gqf4NaNOcVd9EFpbi7zxu/s2yAZiWPwzHVjI0Oa',
+        password_hash: defaultHash,
         role: 'GOVERNMENT',
         organization_id: 2
       },
       {
         name: 'Dr. Sunita Deshmukh (Hospital Owner)',
         email: 'owner@sankalp.ai',
-        password_hash: '$2a$10$Wl5DEMuR2ubkVe2Jrf04WOo5PIRnGzBjXPBOI2voMloFESiJAPTOq',
+        password_hash: defaultHash,
         role: 'PROBLEM_OWNER',
         organization_id: 1
       },
       {
         name: 'Prof. Arvind Kulkarni (University Authority)',
         email: 'university@sankalp.ai',
-        password_hash: '$2a$10$BVrW.FfeXCSNXcvVfiBxhumDlnE6Y5LiG/1xf65JeeuVtw2X5xMbu',
+        password_hash: defaultHash,
         role: 'UNIVERSITY_ADMIN',
         university_id: 1
       },
       {
         name: 'Aarav Mehta (Student Volunteer)',
         email: 'student@sankalp.ai',
-        password_hash: '$2a$10$sfgCOByGQQlFsnB/tGhnc.60pM.V4S9fQK/GXKmILQ3jhbSaER5Hi',
+        password_hash: defaultHash,
         role: 'STUDENT',
         university_id: 1
       }

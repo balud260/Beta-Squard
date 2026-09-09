@@ -37,21 +37,154 @@ router.get('/', authenticateToken, (req, res) => {
     res.status(500).json({ error: 'Failed to fetch disaster incidents.' });
   }
 });
+const { initializeOfficialSources, ingestExternalAlert, confirmAlertAndCreateDisaster } = require('../services/disaster/disasterIngestionService');
+const { evaluateAndPersistDisasterRisks } = require('../services/disaster/universityRiskEngine');
+const { sendTargetedDisasterNotifications } = require('../services/disaster/disasterAlertNotificationService');
+
+// Initialize official sources idempotently
+initializeOfficialSources();
+
+/**
+ * GET /api/disasters/alerts/incoming - List pending official external alerts for Government review
+ */
+router.get('/alerts/incoming', authenticateToken, (req, res) => {
+  try {
+    const alerts = db.prepare(`
+      SELECT * FROM external_alerts 
+      ORDER BY review_status = 'PENDING_REVIEW' DESC, issued_at DESC
+    `).all();
+
+    res.json({ alerts });
+  } catch (error) {
+    console.error('Fetch incoming alerts error:', error);
+    res.status(500).json({ error: 'Failed to fetch incoming official alerts.' });
+  }
+});
+
+/**
+ * POST /api/disasters/alerts/ingest - Ingest an external alert payload (Source Adapter / Ingestion Feed)
+ */
+router.post('/alerts/ingest', (req, res) => {
+  try {
+    const { source_name, payload } = req.body;
+    const result = ingestExternalAlert(payload || req.body, source_name || 'India Meteorological Department (IMD)');
+    res.status(201).json({
+      message: 'Alert ingested successfully.',
+      ...result
+    });
+  } catch (error) {
+    console.error('Alert ingestion error:', error);
+    res.status(500).json({ error: 'Failed to ingest alert payload.' });
+  }
+});
+
+/**
+ * POST /api/disasters/alerts/:id/confirm - Government Confirms External Alert
+ */
+router.post('/alerts/:id/confirm', authenticateToken, authorizeRoles('GOVERNMENT'), (req, res) => {
+  try {
+    const alertId = req.params.id;
+    const result = confirmAlertAndCreateDisaster(alertId, req.user.id, req.body);
+    res.status(201).json({
+      message: `Official alert confirmed. Disaster #${result.disasterId} created and early warning alerts broadcasted to universities.`,
+      ...result
+    });
+  } catch (error) {
+    console.error('Confirm alert error:', error);
+    res.status(400).json({ error: error.message || 'Failed to confirm alert.' });
+  }
+});
+
+/**
+ * POST /api/disasters/alerts/:id/reject - Government Rejects External Alert
+ */
+router.post('/alerts/:id/reject', authenticateToken, authorizeRoles('GOVERNMENT'), (req, res) => {
+  try {
+    const alertId = req.params.id;
+    const { reason } = req.body;
+
+    db.prepare('UPDATE external_alerts SET review_status = "REJECTED", updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(alertId);
+    db.prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)')
+      .run(req.user.id, 'ALERT_REJECTED', 'EXTERNAL_ALERT', alertId, `Government rejected alert #${alertId}: ${reason || 'Not applicable'}`);
+
+    res.json({ message: 'Official alert rejected successfully.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to reject alert.' });
+  }
+});
+
+/**
+ * POST /api/disasters/alerts/:id/mark-duplicate - Mark duplicate alert
+ */
+router.post('/alerts/:id/mark-duplicate', authenticateToken, authorizeRoles('GOVERNMENT'), (req, res) => {
+  try {
+    const alertId = req.params.id;
+    const { linked_disaster_id } = req.body;
+
+    db.prepare('UPDATE external_alerts SET review_status = "DUPLICATE", linked_disaster_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(linked_disaster_id || null, alertId);
+    res.json({ message: 'Alert marked as duplicate.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to mark alert duplicate.' });
+  }
+});
+
+/**
+ * GET /api/disasters/sources - List official alert data sources & sync status
+ */
+router.get('/sources', authenticateToken, (req, res) => {
+  try {
+    const sources = db.prepare('SELECT * FROM disaster_sources ORDER BY trust_level ASC').all();
+    res.json({ sources });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch alert data sources.' });
+  }
+});
+
+/**
+ * POST /api/disasters/sources/sync - Sync external alert sources
+ */
+router.post('/sources/sync', authenticateToken, authorizeRoles('GOVERNMENT'), async (req, res) => {
+  try {
+    await initializeOfficialSources();
+    const demoPayload = {
+      external_alert_id: `IMD_${Date.now()}`,
+      alert_type: 'Cyclone',
+      title: 'Severe Cyclone & Storm Surge Alert (IMD)',
+      description: 'Extremely severe cyclonic storm approaching coastal region.',
+      severity: 'CRITICAL',
+      lat: 20.4625,
+      lng: 85.8828,
+      affected_radius_km: 120
+    };
+    const ingested = ingestExternalAlert(demoPayload, 'India Meteorological Department (IMD)');
+    res.json({
+      message: 'Source sync completed successfully.',
+      latest_alert: ingested.alert
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to sync external alert sources.' });
+  }
+});
 
 /**
  * POST /api/disasters - Create a new disaster incident (Government Only)
  */
 router.post('/', authenticateToken, authorizeRoles('GOVERNMENT'), (req, res) => {
   try {
-    const { title, type, location, lat, lng, severity, affected_population, vulnerable_population, hazard_info } = req.body;
+    const { title, type, location, lat, lng, severity, affected_population, vulnerable_population, hazard_info, affected_radius_km, required_capabilities, immediate_actions } = req.body;
 
     if (!title || !type || !location) {
       return res.status(400).json({ error: 'Title, type, and location are required.' });
     }
 
+    const radius = Number(affected_radius_km) || 15.0;
+
     const stmt = db.prepare(`
-      INSERT INTO disasters (title, type, location, lat, lng, severity, affected_population, vulnerable_population, hazard_info, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'RESPONSE_ACTIVE')
+      INSERT INTO disasters (
+        title, type, location, lat, lng, severity, affected_population, vulnerable_population,
+        hazard_info, status, affected_radius_km, confirmed_by, confirmed_at, verification_status,
+        required_capabilities_json, immediate_actions_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'RESPONSE_ACTIVE', ?, ?, CURRENT_TIMESTAMP, 'GOVERNMENT_CONFIRMED', ?, ?)
     `);
 
     const result = stmt.run(
@@ -63,18 +196,49 @@ router.post('/', authenticateToken, authorizeRoles('GOVERNMENT'), (req, res) => 
       severity || 'CRITICAL',
       affected_population || 45000,
       vulnerable_population || 8500,
-      hazard_info || 'Disaster incident reported.'
+      hazard_info || 'Government declared disaster incident.',
+      radius,
+      req.user.id,
+      JSON.stringify(required_capabilities || ['Medical Triage', 'GIS Survey', 'Search & Rescue']),
+      JSON.stringify(immediate_actions || ['Activate Emergency Response Teams', 'Verify Relocation Shelters'])
     );
 
     const disasterId = result.lastInsertRowid;
 
+    // Add default volunteer requirements
+    const defaultReqs = [
+      { role: 'Medical Support', count: 10, urgency: 'CRITICAL' },
+      { role: 'Relief Operations', count: 50, urgency: 'HIGH' },
+      { role: 'Technical / GIS', count: 15, urgency: 'HIGH' }
+    ];
+
+    for (const reqItem of defaultReqs) {
+      db.prepare(`
+        INSERT INTO disaster_requirements (disaster_id, role_type, required_count, fulfilled_count, urgency)
+        VALUES (?, ?, ?, 0, ?)
+      `).run(disasterId, reqItem.role, reqItem.count, reqItem.urgency);
+    }
+
+    // Add default relocation sites
+    db.prepare(`
+      INSERT INTO relocation_sites (disaster_id, name, location, lat, lng, capacity, current_occupancy, hospital_distance_km, road_status, risk_level, score, status)
+      VALUES 
+      (?, 'Relocation Site Alpha (District Sports Complex)', 'North Sector', ?, ?, 5000, 0, 3.2, 'OPEN', 'LOW', 95, 'APPROVED'),
+      (?, 'Relocation Site Beta (Community Center B)', 'East Sector', ?, ?, 3500, 0, 5.1, 'OPEN', 'LOW', 88, 'APPROVED')
+    `).run(disasterId, (lat || 28.6139) + 0.02, (lng || 77.2090) + 0.02, disasterId, (lat || 28.6139) - 0.03, (lng || 77.2090) + 0.03);
+
+    // Run University Risk Engine & broadcast targeted notifications
+    const risks = evaluateAndPersistDisasterRisks(disasterId);
+    sendTargetedDisasterNotifications(disasterId, risks);
+
     // Audit log
     db.prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)')
-      .run(req.user.id, 'DISASTER_CREATED', 'DISASTER', disasterId, `Disaster '${title}' created by Government`);
+      .run(req.user.id, 'DISASTER_CREATED', 'DISASTER', disasterId, `Disaster '${title}' declared by Government`);
 
     res.status(201).json({
       message: 'Disaster incident created successfully.',
-      disasterId
+      disasterId,
+      universityRisks: risks
     });
   } catch (error) {
     console.error('Create disaster error:', error);
@@ -477,4 +641,51 @@ router.post('/:id/re-route-relocation', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/disasters/:id/university-risks - Government live monitoring breakdown of university risk levels & response actions
+ */
+router.get('/:id/university-risks', authenticateToken, (req, res) => {
+  try {
+    const disasterId = req.params.id;
+
+    // Evaluate & update risk records dynamically
+    const risks = evaluateAndPersistDisasterRisks(disasterId);
+
+    const detailed = risks.map(r => {
+      const u = db.prepare('SELECT id, name, location, total_students, nss_capacity, ncc_capacity FROM universities WHERE id = ?').get(r.university_id);
+      return {
+        ...r,
+        university: u
+      };
+    });
+
+    const highCount = detailed.filter(d => d.risk_level === 'HIGH').length;
+    const medCount = detailed.filter(d => d.risk_level === 'MEDIUM').length;
+    const lowCount = detailed.filter(d => d.risk_level === 'LOW').length;
+    const safeCount = detailed.filter(d => d.risk_level === 'SAFE').length;
+
+    const ackedCount = detailed.filter(d => d.acknowledged === 1).length;
+    const activeCount = detailed.filter(d => ['ACTIVATING', 'ACTIVE', 'DEPLOYED'].includes(d.response_status)).length;
+
+    res.json({
+      disaster_id: disasterId,
+      total_universities: detailed.length,
+      summary: {
+        high_risk: highCount,
+        medium_risk: medCount,
+        low_risk: lowCount,
+        safe: safeCount,
+        total_acknowledged: ackedCount,
+        unacknowledged: detailed.length - ackedCount,
+        response_activated: activeCount
+      },
+      university_risks: detailed
+    });
+  } catch (error) {
+    console.error('Fetch university risks error:', error);
+    res.status(500).json({ error: 'Failed to fetch university risks.' });
+  }
+});
+
 module.exports = router;
+
