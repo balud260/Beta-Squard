@@ -7,7 +7,7 @@ import {
 import { api } from '../services/api';
 import DisasterMap from './DisasterMap';
 
-export default function DisasterSimulationModal({ isOpen, onClose, onExerciseStarted, onResetComplete, onViewReport, onReviewAlert }) {
+export default function DisasterSimulationModal({ isOpen, onClose, onExerciseStarted, onResetComplete, onViewReport, onReviewAlert, onScenarioSelect }) {
   const [scenarios, setScenarios] = useState([]);
   const [selectedScenarioKey, setSelectedScenarioKey] = useState('vijayawada_flood');
   const [mode, setMode] = useState('FAST'); // 'FAST' | 'MANUAL'
@@ -85,15 +85,22 @@ export default function DisasterSimulationModal({ isOpen, onClose, onExerciseSta
 
   const handleSelectScenario = (sc) => {
     setSelectedScenarioKey(sc.key);
-    setCustomConfig({
+    const config = {
+      key: sc.key,
       title: sc.title,
       type: sc.type,
       severity: sc.severity,
       location: sc.location,
       latitude: sc.latitude,
       longitude: sc.longitude,
-      affected_radius_km: sc.affected_radius_km
-    });
+      affected_radius_km: sc.affected_radius_km,
+      description: sc.description,
+      source_name: sc.source_name
+    };
+    setCustomConfig(config);
+    if (onScenarioSelect) {
+      onScenarioSelect(config);
+    }
   };
 
   async function handleStartSimulation() {

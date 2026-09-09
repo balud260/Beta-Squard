@@ -33,6 +33,21 @@ export default function GovernmentDashboard() {
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [liveResponseStatus, setLiveResponseStatus] = useState(null);
 
+  // Simulation Scenario & Map Context State
+  const [simulationScenarios, setSimulationScenarios] = useState([]);
+  const [selectedScenario, setSelectedScenario] = useState({
+    key: 'vijayawada_flood',
+    title: 'Vijayawada Regional Flood Emergency',
+    type: 'Flood',
+    severity: 'CRITICAL',
+    location: 'Vijayawada-Krishna Basin Region',
+    latitude: 16.5062,
+    longitude: 80.6480,
+    affected_radius_km: 120,
+    description: 'Extremely heavy rainfall causing rapid surge in Krishna river water levels.'
+  });
+  const [isSimulationActive, setIsSimulationActive] = useState(false);
+
   // Simulation & Exercise Modals
   const [showSimulationModal, setShowSimulationModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -64,6 +79,40 @@ export default function GovernmentDashboard() {
   const [newUrgency, setNewUrgency] = useState('HIGH');
   const [submittingReq, setSubmittingReq] = useState(false);
 
+  // Smooth scroll helper for action buttons & navigation
+  const scrollToSection = (sectionId) => {
+    setTimeout(() => {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
+
+  const handleSelectScenarioCard = (sc) => {
+    if (!sc) return;
+    setSelectedScenario({
+      key: sc.key,
+      title: sc.title,
+      type: sc.type,
+      severity: sc.severity,
+      location: sc.location,
+      latitude: Number(sc.latitude || sc.lat || 16.5062),
+      longitude: Number(sc.longitude || sc.lng || 80.6480),
+      affected_radius_km: Number(sc.affected_radius_km || 120),
+      description: sc.description,
+      source_name: sc.source_name
+    });
+    setIsSimulationActive(true);
+  };
+
+  const handleRunDisasterSimulationClick = () => {
+    setActiveTab('disaster');
+    setDisasterSubTab('simulation');
+    setIsSimulationActive(true);
+    scrollToSection('simulation-section');
+  };
+
   useEffect(() => {
     document.title = 'SANKALP AI | Government Disaster Command';
     loadGovernmentDashboard();
@@ -87,6 +136,15 @@ export default function GovernmentDashboard() {
     setLoadingDisaster(true);
     setDisasterError(null);
     try {
+      // 0. Fetch available simulation scenarios
+      const scRes = await api.getSimulationScenarios().catch(() => ({ scenarios: [] }));
+      const scList = scRes.scenarios || [];
+      setSimulationScenarios(scList);
+      if (scList.length > 0 && (!selectedScenario || !selectedScenario.key)) {
+        const def = scList.find(s => s.key === 'vijayawada_flood') || scList[0];
+        setSelectedScenario(def);
+      }
+
       // 1. Fetch incoming official alerts
       const alertsRes = await api.getIncomingAlerts().catch(() => ({ alerts: [] }));
       setIncomingAlerts(alertsRes.alerts || []);
@@ -225,6 +283,44 @@ export default function GovernmentDashboard() {
   const responseCoveragePct = totalRequiredVolunteers > 0 ? Math.min(100, Math.round((totalFulfilledVolunteers / totalRequiredVolunteers) * 100)) : 0;
   
   const highPressureHospitalsCount = hospitals.filter(h => h.status === 'NEAR_CAPACITY' || h.status === 'HIGH_PRESSURE' || (h.available_beds / (h.total_beds || 1)) <= 0.25).length;
+
+  // Computed Disaster & University Objects for Map (Switches between Live Operational vs Simulation scenario)
+  const isSimMapActive = isSimulationActive || disasterSubTab === 'simulation' || activeDisaster?.is_simulation === 1;
+
+  const currentMapDisaster = isSimMapActive
+    ? {
+        id: 'SIM',
+        title: selectedScenario?.title || 'Vijayawada Regional Flood Emergency',
+        severity: selectedScenario?.severity || 'CRITICAL',
+        type: selectedScenario?.type || 'Flood',
+        location: selectedScenario?.location || 'Vijayawada-Krishna Basin Region',
+        lat: Number(selectedScenario?.latitude || selectedScenario?.lat || 16.5062),
+        lng: Number(selectedScenario?.longitude || selectedScenario?.lng || 80.6480),
+        affected_radius_km: Number(selectedScenario?.affected_radius_km || 120),
+        is_simulation: 1
+      }
+    : activeDisaster;
+
+  const currentMapUniversities = isSimMapActive
+    ? (universityRisks.length > 0
+        ? universityRisks.map(r => ({
+            id: r.university_id || r.id,
+            name: r.university_name || r.name,
+            university_lat: Number(r.university_lat || (currentMapDisaster.lat + ((r.university_id || 1) * 0.03))),
+            university_lng: Number(r.university_lng || (currentMapDisaster.lng + ((r.university_id || 1) * 0.025))),
+            risk_level: r.risk_level,
+            distance_km: r.distance_km,
+            risk_reason: r.risk_reason,
+            acknowledged: r.acknowledged,
+            response_status: r.response_status
+          }))
+        : nearbyUniversities.map(u => ({
+            ...u,
+            university_lat: currentMapDisaster.lat + (u.id === 1 ? 0.02 : u.id === 2 ? 0.085 : u.id === 3 ? 0.18 : u.id === 4 ? 0.45 : 0.85),
+            university_lng: currentMapDisaster.lng + (u.id === 1 ? -0.01 : u.id === 2 ? 0.06 : u.id === 3 ? 0.15 : u.id === 4 ? 0.35 : 0.70)
+          }))
+      )
+    : nearbyUniversities;
 
   return (
     <div style={{ backgroundColor: 'var(--bg-main)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -402,14 +498,14 @@ export default function GovernmentDashboard() {
           <div className="page-section">
             
             {/* DISASTER INTELLIGENCE & SIMULATION HEADER PANEL */}
-            <div className="card" style={{ marginBottom: '1.5rem', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', padding: '1.25rem' }}>
+            <div id="disaster-intelligence" className="card" style={{ marginBottom: '1.5rem', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', padding: '1.25rem', scrollMarginTop: '85px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
                     <span className="badge badge-navy" style={{ gap: '0.3rem', fontSize: '0.7rem' }}>
                       <Radio size={12} className="spin" /> DISASTER INTELLIGENCE &amp; OFFICIAL ALERTS
                     </span>
-                    {activeDisaster?.is_simulation === 1 && (
+                    {(isSimulationActive || activeDisaster?.is_simulation === 1) && (
                       <span className="badge badge-warning" style={{ gap: '0.3rem', fontSize: '0.7rem', fontWeight: 700 }}>
                         <Flame size={12} /> SIMULATION MODE — NOT A LIVE EMERGENCY
                       </span>
@@ -423,14 +519,21 @@ export default function GovernmentDashboard() {
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                   <div style={{ display: 'flex', backgroundColor: 'var(--bg-subtle)', padding: '3px', borderRadius: 'var(--radius-md)', gap: '2px' }}>
                     <button
-                      onClick={() => setDisasterSubTab('alerts')}
+                      onClick={() => {
+                        setDisasterSubTab('alerts');
+                        scrollToSection('official-alerts');
+                      }}
                       className={`btn btn-xs ${disasterSubTab === 'alerts' ? 'btn-primary' : 'btn-ghost'}`}
                       style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.35rem 0.75rem' }}
                     >
                       <Radio size={12} /> OFFICIAL ALERTS {incomingAlerts.filter(a => a.review_status === 'PENDING_REVIEW').length > 0 && `(${incomingAlerts.filter(a => a.review_status === 'PENDING_REVIEW').length})`}
                     </button>
                     <button
-                      onClick={() => setDisasterSubTab('simulation')}
+                      onClick={() => {
+                        setDisasterSubTab('simulation');
+                        setIsSimulationActive(true);
+                        scrollToSection('simulation-section');
+                      }}
                       className={`btn btn-xs ${disasterSubTab === 'simulation' ? 'btn-primary' : 'btn-ghost'}`}
                       style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.35rem 0.75rem' }}
                     >
@@ -439,7 +542,7 @@ export default function GovernmentDashboard() {
                   </div>
 
                   <button
-                    onClick={() => setShowSimulationModal(true)}
+                    onClick={handleRunDisasterSimulationClick}
                     className="btn btn-terracotta btn-sm"
                     style={{ fontWeight: 700, gap: '0.4rem', boxShadow: '0 4px 12px rgba(194, 65, 12, 0.25)' }}
                   >
@@ -450,7 +553,7 @@ export default function GovernmentDashboard() {
 
               {/* Sub-tab 1: Official Incoming Alerts Queue */}
               {disasterSubTab === 'alerts' && (
-                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
+                <div id="official-alerts" style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1rem', scrollMarginTop: '85px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                     <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
                       Pending Official Source Alerts (Government Review Required)
@@ -494,32 +597,125 @@ export default function GovernmentDashboard() {
                 </div>
               )}
 
-              {/* Sub-tab 2: Simulation Mode Info & Active Control */}
+              {/* Sub-tab 2: Simulation Mode Info & Interactive Scenario Controls */}
               {disasterSubTab === 'simulation' && (
-                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div id="simulation-section" style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1rem', scrollMarginTop: '85px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <div>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--navy)', margin: 0 }}>
-                        End-to-End Disaster Exercise Mode
+                      <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--navy)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        DISASTER EXERCISE &amp; SCENARIO CONTROLLER
                       </h4>
                       <p className="text-muted" style={{ fontSize: '0.8rem', margin: '0.2rem 0 0 0' }}>
-                        Simulates external alert arrival, official verification, Haversine risk calculations, targeted notifications, university acknowledgements, and response team deployments.
+                        Select a simulation scenario to immediately update map location, impact radius, and university risk evaluation.
                       </p>
                     </div>
 
                     <button
                       onClick={() => setShowSimulationModal(true)}
-                      className="btn btn-primary btn-sm"
+                      className="btn btn-terracotta btn-sm"
+                      style={{ fontWeight: 700, gap: '0.4rem' }}
                     >
-                      Open Exercise Controller
+                      <Play size={14} fill="currentColor" /> Open Full Exercise Controller
                     </button>
+                  </div>
+
+                  {/* Interactive Scenario Cards Grid */}
+                  <div id="simulation-controls" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.85rem', marginBottom: '1rem', scrollMarginTop: '85px' }}>
+                    {(simulationScenarios.length > 0 ? simulationScenarios : [
+                      {
+                        key: 'vijayawada_flood',
+                        title: 'Vijayawada Regional Flood Emergency',
+                        type: 'Flood',
+                        severity: 'CRITICAL',
+                        location: 'Vijayawada-Krishna Basin Region',
+                        latitude: 16.5062,
+                        longitude: 80.6480,
+                        affected_radius_km: 120,
+                        description: 'Extremely heavy rainfall causing rapid surge in Krishna river water levels.'
+                      },
+                      {
+                        key: 'ap_cyclone',
+                        title: 'Andhra Pradesh Coastal Cyclone Warning',
+                        type: 'Cyclone',
+                        severity: 'HIGH',
+                        location: 'Visakhapatnam-Kakinada Coastal Belt',
+                        latitude: 17.6868,
+                        longitude: 83.2185,
+                        affected_radius_km: 150,
+                        description: 'Category 3 severe cyclonic storm approaching coastal Andhra Pradesh.'
+                      },
+                      {
+                        key: 'urban_industrial',
+                        title: 'Urban Industrial Chemical Incident',
+                        type: 'Industrial Accident',
+                        severity: 'CRITICAL',
+                        location: 'Cuttack-Choudwar Industrial Corridor',
+                        latitude: 20.4625,
+                        longitude: 85.8828,
+                        affected_radius_km: 80,
+                        description: 'Hazardous chemical container leak reported at industrial processing plant.'
+                      }
+                    ]).map((sc) => {
+                      const isSelected = selectedScenario.key === sc.key;
+                      return (
+                        <div
+                          key={sc.key}
+                          onClick={() => handleSelectScenarioCard(sc)}
+                          style={{
+                            backgroundColor: isSelected ? 'var(--terracotta-soft)' : 'var(--bg-subtle)',
+                            border: isSelected ? '2px solid var(--terracotta)' : '1px solid var(--border-light)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '0.85rem 1rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                            boxShadow: isSelected ? '0 4px 12px rgba(194, 65, 12, 0.15)' : 'none'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                            <span className="badge badge-navy" style={{ fontSize: '0.65rem' }}>{sc.type}</span>
+                            <span className={`badge ${sc.severity === 'CRITICAL' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: '0.65rem' }}>
+                              {sc.severity}
+                            </span>
+                          </div>
+
+                          <h5 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--navy)', marginBottom: '0.3rem' }}>
+                            {sc.title}
+                          </h5>
+
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                            📍 {sc.location} • <strong>{sc.affected_radius_km || 120} KM RADIUS</strong>
+                          </div>
+
+                          {isSelected && (
+                            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--terracotta)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                              <Check size={13} /> MAP CONTEXT ACTIVE
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Selected Scenario Live Summary Strip */}
+                  <div style={{ backgroundColor: 'var(--navy)', color: '#FFFFFF', padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.8rem' }}>
+                    <div>
+                      <span style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', marginRight: '0.5rem' }}>ACTIVE MAP SCENARIO:</span>
+                      <strong style={{ color: '#FFFFFF' }}>{selectedScenario.title}</strong>
+                      <span style={{ color: '#f87171', marginLeft: '0.5rem', fontWeight: 700 }}>({selectedScenario.severity})</span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', fontSize: '0.75rem' }}>
+                      <span>📍 {selectedScenario.location}</span>
+                      <span style={{ color: '#fde047', fontWeight: 700 }}>⭕ IMPACT: {selectedScenario.affected_radius_km || 120} KM</span>
+                      <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>SIMULATED OFFICIAL FEED</span>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
 
             {/* Refresh & Controls Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <div id="active-disaster" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', scrollMarginTop: '85px' }}>
               <div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--navy)', margin: 0 }}>
                   Active Operational Command View
@@ -584,12 +780,12 @@ export default function GovernmentDashboard() {
               <>
                 {/* Dynamic Metric Stat Cards */}
                 <div className="grid grid-cols-4" style={{ marginBottom: '1.5rem' }}>
-                  <div className="stat-card">
+                  <div className="stat-card" onClick={() => scrollToSection('active-disaster')} style={{ cursor: 'pointer' }}>
                     <div className="lbl">ACTIVE INCIDENTS</div>
                     <div className="num" style={{ color: 'var(--status-danger)' }}>
                       {activeIncidentsCount.toString().padStart(2, '0')}
                     </div>
-                    <div className="ctx">{activeDisaster.title}</div>
+                    <div className="ctx">{currentMapDisaster?.title || activeDisaster.title}</div>
                   </div>
 
                   <div className="stat-card">
@@ -598,7 +794,7 @@ export default function GovernmentDashboard() {
                     <div className="ctx">{totalVulnerablePop} Vulnerable residents</div>
                   </div>
 
-                  <div className="stat-card">
+                  <div className="stat-card" onClick={() => scrollToSection('response-status')} style={{ cursor: 'pointer' }}>
                     <div className="lbl">RESPONSE COVERAGE</div>
                     <div className="num" style={{ color: 'var(--status-success)' }}>
                       {responseCoveragePct}%
@@ -606,7 +802,7 @@ export default function GovernmentDashboard() {
                     <div className="ctx">{totalFulfilledVolunteers} / {totalRequiredVolunteers} Volunteers Deployed</div>
                   </div>
 
-                  <div className="stat-card">
+                  <div className="stat-card" onClick={() => scrollToSection('hospital-monitoring')} style={{ cursor: 'pointer' }}>
                     <div className="lbl">HOSPITALS UNDER PRESSURE</div>
                     <div className="num" style={{ color: highPressureHospitalsCount > 0 ? 'var(--status-warning)' : 'var(--status-success)' }}>
                       {highPressureHospitalsCount.toString().padStart(2, '0')}
@@ -618,16 +814,18 @@ export default function GovernmentDashboard() {
                 {/* Section A: Active Incident Overview & Map Grid */}
                 <div className="gov-incident-grid" style={{ marginBottom: '2rem' }}>
                   {/* Map */}
-                  <div className="card" style={{ padding: '1.25rem' }}>
+                  <div id="map" className="card" style={{ padding: '1.25rem', scrollMarginTop: '85px' }}>
                     <div className="panel-head">
                       <h3 className="card-title">Geospatial Hazard Exposure &amp; Response Map</h3>
-                      <span className="badge badge-danger">LIVE COORDINATION FEED</span>
+                      <span className={isSimMapActive ? "badge badge-warning" : "badge badge-danger"}>
+                        {isSimMapActive ? "SIMULATION MAP — NOT LIVE" : "LIVE COORDINATION FEED"}
+                      </span>
                     </div>
                     <DisasterMap
-                      disaster={activeDisaster}
+                      disaster={currentMapDisaster}
                       relocationSites={relocationSites}
                       hospitals={hospitals}
-                      universities={nearbyUniversities}
+                      universities={currentMapUniversities}
                     />
                   </div>
 
@@ -635,31 +833,31 @@ export default function GovernmentDashboard() {
                   <div className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     <div>
                       <div className="panel-head" style={{ marginBottom: '1rem' }}>
-                        <span className={`badge ${activeDisaster.severity === 'CRITICAL' ? 'badge-danger' : 'badge-warning'}`}>
-                          {activeDisaster.severity} SEVERITY
+                        <span className={`badge ${currentMapDisaster.severity === 'CRITICAL' ? 'badge-danger' : 'badge-warning'}`}>
+                          {currentMapDisaster.severity} SEVERITY
                         </span>
-                        <span className="metadata-text">{activeDisaster.status}</span>
+                        <span className="metadata-text">{isSimMapActive ? 'SIMULATED EXERCISE' : activeDisaster.status}</span>
                       </div>
                       <h3 style={{ fontSize: '1.2rem', marginBottom: '0.4rem', color: 'var(--navy)', fontWeight: 700 }}>
-                        {activeDisaster.title}
+                        {currentMapDisaster.title}
                       </h3>
                       <div className="metadata-text" style={{ marginBottom: '1rem' }}>
-                        📍 <strong>{activeDisaster.location}</strong>
+                        📍 <strong>{currentMapDisaster.location}</strong>
                       </div>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0.85rem', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '13px' }}>
-                          <span>Affected Population:</span>
-                          <strong>{activeDisaster.affected_population?.toLocaleString() || 0} residents</strong>
+                          <span>Impact Radius:</span>
+                          <strong>{currentMapDisaster.affected_radius_km || 120} KM Zone</strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0.85rem', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '13px' }}>
-                          <span>Vulnerable Population:</span>
-                          <strong style={{ color: 'var(--status-danger)' }}>{activeDisaster.vulnerable_population?.toLocaleString() || 0} elders/infants</strong>
+                          <span>Affected Population:</span>
+                          <strong>{activeDisaster.affected_population?.toLocaleString() || '120,000'} residents</strong>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', padding: '0.6rem 0.85rem', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '13px' }}>
                           <span style={{ fontWeight: 600, color: 'var(--navy)' }}>Hazard Details:</span>
                           <span style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: 1.4 }}>
-                            {activeDisaster.hazard_info}
+                            {currentMapDisaster.description || activeDisaster.hazard_info}
                           </span>
                         </div>
                       </div>
@@ -677,7 +875,7 @@ export default function GovernmentDashboard() {
                 </div>
 
                 {/* Section B: ACTIVE REQUIREMENTS */}
-                <div className="card" style={{ marginBottom: '2rem', borderLeft: '5px solid var(--navy)' }}>
+                <div id="active-requirements" className="card" style={{ marginBottom: '2rem', borderLeft: '5px solid var(--navy)', scrollMarginTop: '85px' }}>
                   <div className="panel-head">
                     <div>
                       <h3 className="card-title">Active Emergency Volunteer Requirements</h3>
@@ -731,7 +929,7 @@ export default function GovernmentDashboard() {
                 </div>
 
                 {/* Section C: Live University Response Monitoring */}
-                <div className="card" style={{ marginBottom: '2rem', borderLeft: '5px solid var(--terracotta)' }}>
+                <div id="university-risk" className="card" style={{ marginBottom: '2rem', borderLeft: '5px solid var(--terracotta)', scrollMarginTop: '85px' }}>
                   <div className="panel-head">
                     <div>
                       <h3 className="card-title">Live University Response Monitoring &amp; Hubs</h3>
@@ -742,7 +940,7 @@ export default function GovernmentDashboard() {
                     <span className="badge badge-success">LIVE OPERATIONAL FEED</span>
                   </div>
 
-                  <div className="grid grid-cols-4" style={{ marginBottom: '1.25rem' }}>
+                  <div id="response-status" className="grid grid-cols-4" style={{ marginBottom: '1.25rem', scrollMarginTop: '85px' }}>
                     <div className="stat-card">
                       <div className="lbl">TOTAL VOLUNTEERS CONFIRMED</div>
                       <div className="num" style={{ color: 'var(--status-success)' }}>
@@ -806,7 +1004,7 @@ export default function GovernmentDashboard() {
                 </div>
 
                 {/* Section D: RELOCATION / SHELTER STATUS */}
-                <div className="card" style={{ marginBottom: '2rem' }}>
+                <div id="relocation-sites" className="card" style={{ marginBottom: '2rem', scrollMarginTop: '85px' }}>
                   <div className="panel-head">
                     <div>
                       <h3 className="card-title">Relocation Site Evaluation &amp; Re-Routing Control</h3>
@@ -918,7 +1116,7 @@ export default function GovernmentDashboard() {
                 </div>
 
                 {/* Regional Hospitals Monitoring Grid */}
-                <div className="card" style={{ marginBottom: '2rem' }}>
+                <div id="hospital-monitoring" className="card" style={{ marginBottom: '2rem', scrollMarginTop: '85px' }}>
                   <div className="panel-head">
                     <div>
                       <h3 className="card-title">Regional Hospital Pressure &amp; Inflow Monitoring</h3>

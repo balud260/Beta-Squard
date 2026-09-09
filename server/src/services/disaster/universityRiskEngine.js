@@ -21,13 +21,29 @@ function calculateDistanceKm(lat1, lon1, lat2, lon2) {
  * and un-hallucinated reason text.
  */
 function calculateUniversityRisk(disasterOrAlert, university) {
-  const dLat = disasterOrAlert.lat || 28.6139;
-  const dLng = disasterOrAlert.lng || 77.2090;
-  const uLat = university.lat || 28.6139;
-  const uLng = university.lng || 77.2090;
+  const dLat = Number(disasterOrAlert.lat || disasterOrAlert.latitude || 28.6139);
+  const dLng = Number(disasterOrAlert.lng || disasterOrAlert.longitude || 77.2090);
+
+  let uLat = Number(university.lat || 28.6139);
+  let uLng = Number(university.lng || 77.2090);
+
+  // If simulation mode, project university coordinates dynamically relative to simulated epicenter
+  const isSim = disasterOrAlert.is_simulation === 1 || disasterOrAlert.simulation_id;
+  if (isSim) {
+    const offsets = {
+      1: { lat: 0.020, lng: -0.010 },  // ~2.5 km away
+      2: { lat: 0.085, lng: 0.060 },   // ~11.5 km away
+      3: { lat: 0.180, lng: 0.150 },   // ~25.5 km away
+      4: { lat: 0.450, lng: 0.350 },   // ~60.0 km away
+      5: { lat: 0.850, lng: 0.700 }    // ~115.0 km away
+    };
+    const offset = offsets[university.id] || { lat: (university.id * 0.05), lng: (university.id * 0.04) };
+    uLat = dLat + offset.lat;
+    uLng = dLng + offset.lng;
+  }
 
   const distanceKm = calculateDistanceKm(dLat, dLng, uLat, uLng);
-  const impactRadius = disasterOrAlert.affected_radius_km || 15.0;
+  const impactRadius = Number(disasterOrAlert.affected_radius_km || disasterOrAlert.radius || 15.0);
   const insideImpactZone = distanceKm <= impactRadius;
   const severity = (disasterOrAlert.severity || 'HIGH').toUpperCase();
   const type = disasterOrAlert.type || disasterOrAlert.alert_type || 'Flood Emergency';
@@ -57,6 +73,8 @@ function calculateUniversityRisk(disasterOrAlert, university) {
   return {
     university_id: university.id,
     university_name: university.name,
+    university_lat: uLat,
+    university_lng: uLng,
     risk_level: riskLevel,
     distance_km: distanceKm,
     inside_impact_zone: insideImpactZone,
