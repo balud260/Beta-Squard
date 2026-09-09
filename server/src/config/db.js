@@ -198,34 +198,69 @@ async function initDb() {
       console.log('Database successfully seeded with realistic demo data.');
     }
 
-    // Ensure Hackathon Evaluator Test Accounts exist (idempotent seed)
-    const defaultHash = bcrypt.hashSync('password123', 10);
+    // Ensure Hackathon Evaluator Test Accounts exist and have correct password hashes (idempotent seed)
     const testAccounts = [
       {
         name: 'Commander Rajesh Sharma (Government)',
         email: 'government@sankalp.ai',
-        password_hash: defaultHash,
+        password_hash: bcrypt.hashSync('Sankalp@Gov2026', 10),
+        plainPassword: 'Sankalp@Gov2026',
         role: 'GOVERNMENT',
         organization_id: 2
       },
       {
         name: 'Dr. Sunita Deshmukh (Hospital Owner)',
         email: 'owner@sankalp.ai',
-        password_hash: defaultHash,
+        password_hash: bcrypt.hashSync('Sankalp@Owner2026', 10),
+        plainPassword: 'Sankalp@Owner2026',
         role: 'PROBLEM_OWNER',
         organization_id: 1
       },
       {
         name: 'Prof. Arvind Kulkarni (University Authority)',
         email: 'university@sankalp.ai',
-        password_hash: defaultHash,
+        password_hash: bcrypt.hashSync('Sankalp@University2026', 10),
+        plainPassword: 'Sankalp@University2026',
         role: 'UNIVERSITY_ADMIN',
         university_id: 1
       },
       {
         name: 'Aarav Mehta (Student Volunteer)',
         email: 'student@sankalp.ai',
-        password_hash: defaultHash,
+        password_hash: bcrypt.hashSync('Sankalp@Student2026', 10),
+        plainPassword: 'Sankalp@Student2026',
+        role: 'STUDENT',
+        university_id: 1
+      },
+      {
+        name: 'Commander Rajesh Sharma (Government)',
+        email: 'government@solvelink.demo',
+        password_hash: bcrypt.hashSync('Sankalp@Gov2026', 10),
+        plainPassword: 'Sankalp@Gov2026',
+        role: 'GOVERNMENT',
+        organization_id: 2
+      },
+      {
+        name: 'Dr. Sunita Deshmukh (Hospital Owner)',
+        email: 'owner@solvelink.demo',
+        password_hash: bcrypt.hashSync('Sankalp@Owner2026', 10),
+        plainPassword: 'Sankalp@Owner2026',
+        role: 'PROBLEM_OWNER',
+        organization_id: 1
+      },
+      {
+        name: 'Prof. Arvind Kulkarni (University Authority)',
+        email: 'university@solvelink.demo',
+        password_hash: bcrypt.hashSync('Sankalp@University2026', 10),
+        plainPassword: 'Sankalp@University2026',
+        role: 'UNIVERSITY_ADMIN',
+        university_id: 1
+      },
+      {
+        name: 'Aarav Mehta (Student Volunteer)',
+        email: 'student@solvelink.demo',
+        password_hash: bcrypt.hashSync('Sankalp@Student2026', 10),
+        plainPassword: 'Sankalp@Student2026',
         role: 'STUDENT',
         university_id: 1
       }
@@ -233,13 +268,19 @@ async function initDb() {
 
     for (const acc of testAccounts) {
       try {
-        const existing = queryGet('SELECT id FROM users WHERE LOWER(email) = ?', [acc.email]);
+        const existing = queryGet('SELECT id, password_hash FROM users WHERE LOWER(email) = ?', [acc.email]);
         if (!existing) {
           queryRun(
             `INSERT INTO users (name, email, password_hash, role, organization_id, university_id, status)
              VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')`,
             [acc.name, acc.email, acc.password_hash, acc.role, acc.organization_id || null, acc.university_id || null]
           );
+        } else {
+          // Idempotently update user's password_hash if it does not match designated evaluator password
+          const matchesDesignated = bcrypt.compareSync(acc.plainPassword, existing.password_hash);
+          if (!matchesDesignated) {
+            queryRun('UPDATE users SET password_hash = ?, status = "ACTIVE" WHERE id = ?', [acc.password_hash, existing.id]);
+          }
         }
       } catch (e) {
         console.warn('Test account seed notice:', e.message);
