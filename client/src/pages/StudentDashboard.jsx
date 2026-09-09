@@ -12,6 +12,7 @@ export default function StudentDashboard() {
   const [availableProblems, setAvailableProblems] = useState([]);
   const [mySolutions, setMySolutions] = useState([]);
   const [emergencyAlerts, setEmergencyAlerts] = useState([]);
+  const [campusAlerts, setCampusAlerts] = useState([]);
   const [selectedProblem, setSelectedProblem] = useState(null);
   const [showIdeaModal, setShowIdeaModal] = useState(false);
   const [message, setMessage] = useState('');
@@ -41,8 +42,21 @@ export default function StudentDashboard() {
 
       const reqRes = await api.getVolunteerRequirements().catch(() => ({ requirements: [] }));
       setEmergencyAlerts(reqRes.requirements || []);
+
+      const campusRes = await api.getStudentEmergencyAlerts().catch(() => ({ alerts: [] }));
+      setCampusAlerts(campusRes.alerts || []);
     } catch (err) {
       console.error('Error loading student dashboard data:', err);
+    }
+  }
+
+  async function handleStudentDisasterRespond(disasterId, status) {
+    try {
+      const res = await api.respondStudentEmergencyAlert(disasterId, { status });
+      setMessage(res.message || 'Emergency response availability registered!');
+      loadStudentData();
+    } catch (err) {
+      setMessage('Failed to register emergency response availability.');
     }
   }
 
@@ -168,9 +182,42 @@ export default function StudentDashboard() {
 
             <div className="card" style={{ padding: '1.25rem' }}>
               <h3 style={{ fontSize: '1rem', marginBottom: '0.65rem', color: 'var(--status-danger)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <ShieldAlert size={16} /> Active Emergency Alert
+                <ShieldAlert size={16} /> Active Campus Emergency Alerts
               </h3>
-              {emergencyAlerts.length > 0 ? (
+              {campusAlerts.length > 0 ? (
+                <div style={{ backgroundColor: campusAlerts[0].university_risk_level === 'HIGH' ? 'var(--status-danger-bg)' : 'var(--status-warning-bg)', padding: '0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                    <span className={`badge ${campusAlerts[0].university_risk_level === 'HIGH' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: '0.65rem' }}>
+                      CAMPUS RISK: {campusAlerts[0].university_risk_level}
+                    </span>
+                    <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>
+                      {campusAlerts[0].university_response_status === 'ACTIVE' ? 'RESPONSE ACTIVATED BY CAMPUS' : 'CAMPUS ALERT ACKNOWLEDGED'}
+                    </span>
+                  </div>
+
+                  <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: '0.9rem', marginBottom: '0.2rem' }}>
+                    {campusAlerts[0].disaster_title}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                    📍 Location: <strong>{campusAlerts[0].disaster_location}</strong> • Distance: <strong>{campusAlerts[0].distance_km} km</strong>
+                  </div>
+
+                  <div style={{ backgroundColor: '#ffffff', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)', fontSize: '0.75rem', color: 'var(--text-dark)', marginBottom: '0.6rem', lineHeight: 1.4 }}>
+                    <strong>Action Required:</strong> {campusAlerts[0].required_student_action}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <button
+                      onClick={() => handleStudentDisasterRespond(campusAlerts[0].disaster_id, 'AVAILABLE')}
+                      className="btn btn-primary btn-sm"
+                      style={{ fontSize: '0.75rem', width: '100%', fontWeight: 700 }}
+                      disabled={campusAlerts[0].student_responded}
+                    >
+                      {campusAlerts[0].student_responded ? '✓ Response Availability Registered' : 'I\'m Available to Help'}
+                    </button>
+                  </div>
+                </div>
+              ) : emergencyAlerts.length > 0 ? (
                 <div style={{ backgroundColor: 'var(--status-danger-bg)', padding: '0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid #fecaca' }}>
                   <div style={{ fontWeight: 700, color: 'var(--status-danger)', fontSize: '0.85rem' }}>
                     {emergencyAlerts[0].disaster_title || 'Major Flood Incident - District X'}
@@ -182,13 +229,10 @@ export default function StudentDashboard() {
                     <button onClick={() => handleMissionResponse(emergencyAlerts[0].id, 'CONFIRMED')} className="btn btn-primary btn-sm" style={{ fontSize: '0.75rem' }}>
                       I'm Available
                     </button>
-                    <button onClick={() => handleMissionResponse(emergencyAlerts[0].id, 'DECLINED')} className="btn btn-secondary btn-sm" style={{ fontSize: '0.75rem' }}>
-                      Can't Participate
-                    </button>
                   </div>
                 </div>
               ) : (
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No active emergency alerts at this moment.</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No active campus emergency alerts at this moment.</div>
               )}
             </div>
           </div>

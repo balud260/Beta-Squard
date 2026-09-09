@@ -148,7 +148,10 @@ async function initDb() {
       `ALTER TABLE notifications ADD COLUMN simulation_id TEXT;`,
       `ALTER TABLE audit_logs ADD COLUMN is_simulation INTEGER DEFAULT 0;`,
       `ALTER TABLE audit_logs ADD COLUMN simulation_id TEXT;`,
-      `ALTER TABLE audit_logs ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;`
+      `ALTER TABLE audit_logs ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;`,
+      `ALTER TABLE disasters ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;`,
+      `ALTER TABLE disasters ADD COLUMN is_simulation INTEGER DEFAULT 0;`,
+      `ALTER TABLE disasters ADD COLUMN simulation_id TEXT;`
     ];
 
     for (const sql of migrations) {
@@ -268,6 +271,7 @@ async function initDb() {
 
     for (const acc of testAccounts) {
       try {
+        let userId;
         const existing = queryGet('SELECT id, password_hash FROM users WHERE LOWER(email) = ?', [acc.email]);
         if (!existing) {
           queryRun(
@@ -275,11 +279,26 @@ async function initDb() {
              VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')`,
             [acc.name, acc.email, acc.password_hash, acc.role, acc.organization_id || null, acc.university_id || null]
           );
+          const newlyCreated = queryGet('SELECT id FROM users WHERE LOWER(email) = ?', [acc.email]);
+          userId = newlyCreated ? newlyCreated.id : null;
         } else {
+          userId = existing.id;
           // Idempotently update user's password_hash if it does not match designated evaluator password
           const matchesDesignated = bcrypt.compareSync(acc.plainPassword, existing.password_hash);
           if (!matchesDesignated) {
             queryRun('UPDATE users SET password_hash = ?, status = "ACTIVE" WHERE id = ?', [acc.password_hash, existing.id]);
+          }
+        }
+
+        // Ensure STUDENT role accounts have an associated row in students table
+        if (acc.role === 'STUDENT' && userId) {
+          const studentRecord = queryGet('SELECT id FROM students WHERE user_id = ?', [userId]);
+          if (!studentRecord) {
+            queryRun(
+              `INSERT INTO students (user_id, university_id, department_id, roll_number, skills_json, nss_member, ncc_member, availability_status)
+               VALUES (?, ?, 1, ?, ?, 1, 1, 'AVAILABLE')`,
+              [userId, acc.university_id || 1, `NITD-${userId}-2026`, JSON.stringify(["First Aid", "Disaster Response", "GIS Mapping"])]
+            );
           }
         }
       } catch (e) {

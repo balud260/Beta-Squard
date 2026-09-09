@@ -136,4 +136,122 @@ router.get('/profile', authenticateToken, authorizeRoles('STUDENT'), (req, res) 
   }
 });
 
+/**
+ * GET /api/students/emergency-alerts - Fetch active campus disaster alerts for student's university
+ */
+router.get('/emergency-alerts', authenticateToken, authorizeRoles('STUDENT'), (req, res) => {
+  try {
+    const student = db.prepare('SELECT id, university_id FROM students WHERE user_id = ?').get(req.user.id);
+    if (!student || !student.university_id) {
+      return res.json({ alerts: [] });
+    }
+
+    // Query active disasters affecting student's university
+    const risks = db.prepare(`
+      SELECT udr.*, d.title as disaster_title, d.type as disaster_type, d.severity as disaster_severity,
+             d.location as disaster_location, d.hazard_info, d.hazard_info as disaster_description,
+             d.affected_radius_km, d.lat as disaster_lat, d.lng as disaster_lng,
+             u.name as university_name
+      FROM university_disaster_risks udr
+      JOIN disasters d ON udr.disaster_id = d.id
+      JOIN universities u ON udr.university_id = u.id
+      WHERE udr.university_id = ? AND d.status = 'RESPONSE_ACTIVE'
+      ORDER BY d.created_at DESC
+    `).all(student.university_id);
+
+    const alerts = risks.map((r) => {
+      let requiredAction = 'Monitor local news updates & maintain awareness.';
+      if (r.risk_level === 'HIGH') {
+        requiredAction = 'CRITICAL INSTRUCTION: Your university emergency response is ACTIVE. Follow campus safety instructions & remain available for NSS/NCC volunteer deployment.';
+      } else if (r.risk_level === 'MEDIUM') {
+        requiredAction = 'PREPARATION INSTRUCTION: Review emergency updates, check campus safety status & stay on standby.';
+      }
+
+      // Check if student has responded
+      const existingResp = db.prepare(`
+        SELECT * FROM volunteer_responses vr
+        JOIN disaster_requirements dr ON vr.requirement_id = dr.id
+        WHERE dr.disaster_id = ? AND vr.student_id = ?
+      `).get(r.disaster_id, student.id);
+
+      return {
+        disaster_id: r.disaster_id,
+        disaster_title: r.disaster_title,
+        disaster_type: r.disaster_type,
+        disaster_severity: r.disaster_severity,
+        disaster_location: r.disaster_location,
+        hazard_info: r.hazard_info || r.disaster_description,
+        university_name: r.university_name,
+        university_risk_level: r.risk_level,
+        distance_km: r.distance_km,
+        risk_reason: r.risk_reason,
+        university_acknowledged: r.acknowledged === 1,
+        university_response_status: r.response_status || 'READY',
+        required_student_action: requiredAction,
+        student_responded: Boolean(existingResp),
+        student_response_status: existingResp?.status || null
+      };
+    });
+
+    res.json({ alerts });
+  } catch (error) {
+    console.error('Fetch student emergency alerts error:', error);
+    res.status(500).json({ error: 'Failed to fetch student emergency alerts.' });
+  }
+});
+
+/**
+ * POST /api/students/emergency-alerts/:disasterId/respond - Student responds to active campus disaster alert
+ */
+router.post('/emergency-alerts/:disasterId/respond', authenticateToken, authorizeRoles('STUDENT'), (req, res) => {
+  try {
+    const disasterId = req.params.disasterId;
+    const { status, notes } = req.body;
+
+    const student = db.prepare('SELECT id, university_id FROM students WHERE user_id = ?').get(req.user.id);
+    if (!student) {
+      return res.status(404).json({ error: 'Student record not found.' });
+    }
+
+    // Find first requirement for this disaster or create standard response requirement
+    let reqRow = db.prepare('SELECT id, role_type FROM disaster_requirements WHERE disaster_id = ? ORDER BY id ASC LIMIT 1').get(disasterId);
+    if (!reqRow) {
+      const insReq = db.prepare(`
+        INSERT INTO disaster_requirements (disaster_id, role_type, required_count, fulfilled_count, urgency)
+        VALUES (?, 'Student Campus Responder', 50, 0, 'HIGH')
+      `).run(disasterId);
+      reqRow = { id: insReq.lastInsertRowid, role_type: 'Student Campus Responder' };
+    }
+
+    // Upsert volunteer response
+    const existing = db.prepare('SELECT id FROM volunteer_responses WHERE requirement_id = ? AND student_id = ?').get(reqRow.id, student.id);
+    const respStatus = status || 'CONFIRMED';
+
+    if (existing) {
+      db.prepare('UPDATE volunteer_responses SET status = ?, responded_at = CURRENT_TIMESTAMP WHERE id = ?').run(respStatus, existing.id);
+    } else {
+      db.prepare(`
+        INSERT INTO volunteer_responses (requirement_id, student_id, role_type, status)
+        VALUES (?, ?, ?, ?)
+      `).run(reqRow.id, student.id, reqRow.role_type, respStatus);
+
+      // Increment requirement fulfilled count
+      db.prepare('UPDATE disaster_requirements SET fulfilled_count = fulfilled_count + 1 WHERE id = ?').run(reqRow.id);
+    }
+
+    // Audit log
+    db.prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)')
+      .run(req.user.id, 'STUDENT_DISASTER_RESPONSE', 'DISASTER', disasterId, `Student #${student.id} registered availability: ${respStatus}`);
+
+    res.json({
+      message: 'Your emergency response availability has been registered and reported to your University Command Desk!',
+      disasterId,
+      status: respStatus
+    });
+  } catch (error) {
+    console.error('Student disaster response error:', error);
+    res.status(500).json({ error: 'Failed to register emergency response availability.' });
+  }
+});
+
 module.exports = router;

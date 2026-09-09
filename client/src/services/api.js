@@ -185,5 +185,9 @@ export const api = {
   getSimulationStatus: (simulationId) => request(`/simulation/${simulationId}/status`),
   escalateSimulation: (simulationId, data) => request(`/simulation/${simulationId}/escalate`, { method: 'POST', body: JSON.stringify(data || {}) }),
   resetSimulation: (simulationId) => request(`/simulation/${simulationId}/reset`, { method: 'POST' }),
-  getSimulationReport: (simulationId) => request(`/simulation/${simulationId}/report`)
+  getSimulationReport: (simulationId) => request(`/simulation/${simulationId}/report`),
+
+  // Student Emergency Alert Propagation APIs
+  getStudentEmergencyAlerts: () => request('/students/emergency-alerts'),
+  respondStudentEmergencyAlert: (disasterId, data) => request(`/students/emergency-alerts/${disasterId}/respond`, { method: 'POST', body: JSON.stringify(data || {}) })
 };

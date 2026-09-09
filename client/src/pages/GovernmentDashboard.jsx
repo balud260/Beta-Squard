@@ -79,6 +79,19 @@ export default function GovernmentDashboard() {
   const [newUrgency, setNewUrgency] = useState('HIGH');
   const [submittingReq, setSubmittingReq] = useState(false);
 
+  // Helper to find actual scroll container parent
+  const getScrollParent = (node) => {
+    if (!node || node === document.body || node === document.documentElement) {
+      return window;
+    }
+    const overflowY = window.getComputedStyle(node).overflowY;
+    const isScrollable = (overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight;
+    if (isScrollable) {
+      return node;
+    }
+    return getScrollParent(node.parentElement);
+  };
+
   // Central Action-to-Section Navigation Engine
   const navigateToSection = (targetId, options = {}) => {
     const {
@@ -114,7 +127,15 @@ export default function GovernmentDashboard() {
     const pollAndScroll = () => {
       const el = document.getElementById(targetId);
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const container = getScrollParent(el);
+        if (container === window || !container) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          const elRect = el.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+          const scrollTop = container.scrollTop + (elRect.top - containerRect.top) - 85;
+          container.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' });
+        }
         if (targetId === 'map') {
           setTimeout(() => window.dispatchEvent(new Event('resize')), 200);
         }
