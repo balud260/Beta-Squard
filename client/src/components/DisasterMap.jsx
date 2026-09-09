@@ -78,6 +78,15 @@ function MapViewController({ center, zoom, bounds }) {
       map.setView(center, zoom || 9, { animate: true });
     }
   }, [map, center, zoom, bounds]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      map.invalidateSize();
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [map]);
+
   return null;
 }
 

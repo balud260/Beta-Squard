@@ -79,14 +79,56 @@ export default function GovernmentDashboard() {
   const [newUrgency, setNewUrgency] = useState('HIGH');
   const [submittingReq, setSubmittingReq] = useState(false);
 
-  // Smooth scroll helper for action buttons & navigation
-  const scrollToSection = (sectionId) => {
-    setTimeout(() => {
-      const element = document.getElementById(sectionId);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Central Action-to-Section Navigation Engine
+  const navigateToSection = (targetId, options = {}) => {
+    const {
+      tab = null,
+      subTab = null,
+      activateSimulation = false,
+      openModal = null // 'simulation' | 'ai' | 'requirement'
+    } = options;
+
+    if (tab && activeTab !== tab) {
+      setActiveTab(tab);
+      setSearchParams({ tab });
+    }
+
+    if (subTab && disasterSubTab !== subTab) {
+      setDisasterSubTab(subTab);
+    }
+
+    if (activateSimulation) {
+      setIsSimulationActive(true);
+    }
+
+    if (openModal === 'simulation') setShowSimulationModal(true);
+    if (openModal === 'ai') setShowAiModal(true);
+    if (openModal === 'requirement') setShowReqModal(true);
+
+    if (!targetId) return;
+
+    // Multi-frame DOM polling retry to ensure React mounts the element before scrolling
+    let attempts = 0;
+    const maxAttempts = 25;
+
+    const pollAndScroll = () => {
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (targetId === 'map') {
+          setTimeout(() => window.dispatchEvent(new Event('resize')), 200);
+        }
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        requestAnimationFrame(pollAndScroll);
       }
-    }, 100);
+    };
+
+    requestAnimationFrame(pollAndScroll);
+  };
+
+  const scrollToSection = (sectionId) => {
+    navigateToSection(sectionId, { tab: 'disaster' });
   };
 
   const handleSelectScenarioCard = (sc) => {
@@ -104,13 +146,11 @@ export default function GovernmentDashboard() {
       source_name: sc.source_name
     });
     setIsSimulationActive(true);
+    navigateToSection('map', { tab: 'disaster', subTab: 'simulation', activateSimulation: true });
   };
 
   const handleRunDisasterSimulationClick = () => {
-    setActiveTab('disaster');
-    setDisasterSubTab('simulation');
-    setIsSimulationActive(true);
-    scrollToSection('simulation-section');
+    navigateToSection('simulation-section', { tab: 'disaster', subTab: 'simulation', activateSimulation: true });
   };
 
   useEffect(() => {
@@ -519,21 +559,14 @@ export default function GovernmentDashboard() {
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                   <div style={{ display: 'flex', backgroundColor: 'var(--bg-subtle)', padding: '3px', borderRadius: 'var(--radius-md)', gap: '2px' }}>
                     <button
-                      onClick={() => {
-                        setDisasterSubTab('alerts');
-                        scrollToSection('official-alerts');
-                      }}
+                      onClick={() => navigateToSection('official-alerts', { tab: 'disaster', subTab: 'alerts' })}
                       className={`btn btn-xs ${disasterSubTab === 'alerts' ? 'btn-primary' : 'btn-ghost'}`}
                       style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.35rem 0.75rem' }}
                     >
                       <Radio size={12} /> OFFICIAL ALERTS {incomingAlerts.filter(a => a.review_status === 'PENDING_REVIEW').length > 0 && `(${incomingAlerts.filter(a => a.review_status === 'PENDING_REVIEW').length})`}
                     </button>
                     <button
-                      onClick={() => {
-                        setDisasterSubTab('simulation');
-                        setIsSimulationActive(true);
-                        scrollToSection('simulation-section');
-                      }}
+                      onClick={() => navigateToSection('simulation-section', { tab: 'disaster', subTab: 'simulation', activateSimulation: true })}
                       className={`btn btn-xs ${disasterSubTab === 'simulation' ? 'btn-primary' : 'btn-ghost'}`}
                       style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.35rem 0.75rem' }}
                     >
@@ -611,7 +644,7 @@ export default function GovernmentDashboard() {
                     </div>
 
                     <button
-                      onClick={() => setShowSimulationModal(true)}
+                      onClick={() => navigateToSection('simulation-section', { openModal: 'simulation', tab: 'disaster', subTab: 'simulation', activateSimulation: true })}
                       className="btn btn-terracotta btn-sm"
                       style={{ fontWeight: 700, gap: '0.4rem' }}
                     >
@@ -859,6 +892,33 @@ export default function GovernmentDashboard() {
                           <span style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: 1.4 }}>
                             {currentMapDisaster.description || activeDisaster.hazard_info}
                           </span>
+                        </div>
+                      </div>
+
+                      {/* Quick Command Navigation Toolbar */}
+                      <div style={{ marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border-light)' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem', letterSpacing: '0.04em' }}>
+                          Quick Command Navigation:
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                          <button onClick={() => navigateToSection('map', { tab: 'disaster' })} className="btn btn-ghost btn-xs" style={{ fontSize: '11px', fontWeight: 600 }}>
+                            🗺️ View Map
+                          </button>
+                          <button onClick={() => navigateToSection('active-requirements', { tab: 'disaster' })} className="btn btn-ghost btn-xs" style={{ fontSize: '11px', fontWeight: 600 }}>
+                            📋 View Requirements
+                          </button>
+                          <button onClick={() => navigateToSection('university-risk', { tab: 'disaster' })} className="btn btn-ghost btn-xs" style={{ fontSize: '11px', fontWeight: 600 }}>
+                            🎓 View Universities
+                          </button>
+                          <button onClick={() => navigateToSection('response-status', { tab: 'disaster' })} className="btn btn-ghost btn-xs" style={{ fontSize: '11px', fontWeight: 600 }}>
+                            🚨 View Response
+                          </button>
+                          <button onClick={() => navigateToSection('relocation-sites', { tab: 'disaster' })} className="btn btn-ghost btn-xs" style={{ fontSize: '11px', fontWeight: 600 }}>
+                            🏠 View Relocation
+                          </button>
+                          <button onClick={() => navigateToSection('hospital-monitoring', { tab: 'disaster' })} className="btn btn-ghost btn-xs" style={{ fontSize: '11px', fontWeight: 600 }}>
+                            🏥 View Hospitals
+                          </button>
                         </div>
                       </div>
                     </div>
